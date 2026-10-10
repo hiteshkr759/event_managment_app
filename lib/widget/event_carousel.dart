@@ -4,7 +4,7 @@ import 'package:event_managment_app/widget/nearby_event_card.dart';
 import 'package:flutter/material.dart';
 
 /// Reusable horizontal carousel with page indicator dots for Featured Events.
-class FeaturedEventsCarousel extends StatefulWidget {
+class FeaturedEventsCarousel extends StatelessWidget {
   final List<EventItem> events;
   final ValueChanged<EventItem> onEventTap;
   final double height;
@@ -17,45 +17,31 @@ class FeaturedEventsCarousel extends StatefulWidget {
   });
 
   @override
-  State<FeaturedEventsCarousel> createState() => _FeaturedEventsCarouselState();
-}
-
-class _FeaturedEventsCarouselState extends State<FeaturedEventsCarousel> {
-  final PageController _controller = PageController(viewportFraction: 0.88);
-  int _currentPage = 0;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (widget.events.isEmpty) {
+    if (events.isEmpty) {
       return const EmptyEventsPlaceholder(
         message: 'No featured events match your filter.',
       );
     }
 
     final scheme = Theme.of(context).colorScheme;
-    final activeIndex = _currentPage.clamp(0, widget.events.length - 1);
+    final controller = PageController(viewportFraction: 0.88);
 
     return Column(
       children: [
         SizedBox(
-          height: widget.height,
+          height: height,
           child: PageView.builder(
-            controller: _controller,
-            itemCount: widget.events.length,
-            onPageChanged: (index) => setState(() => _currentPage = index),
+            controller: controller,
+            itemCount: events.length,
+            onPageChanged: (index) => featuredPageNotifier.value = index,
             itemBuilder: (context, index) {
-              final event = widget.events[index];
+              final event = events[index];
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 child: FeaturedEventCard(
                   event: event,
-                  onTap: () => widget.onEventTap(event),
+                  onTap: () => onEventTap(event),
                 ),
               );
             },
@@ -63,21 +49,27 @@ class _FeaturedEventsCarouselState extends State<FeaturedEventsCarousel> {
         ),
         const SizedBox(height: 8),
         // Page indicator dots
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List<Widget>.generate(widget.events.length, (index) {
-            final isActive = index == activeIndex;
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              height: 7,
-              width: isActive ? 22 : 7,
-              decoration: BoxDecoration(
-                color: isActive ? scheme.primary : scheme.outlineVariant,
-                borderRadius: BorderRadius.circular(8),
-              ),
+        ValueListenableBuilder<int>(
+          valueListenable: featuredPageNotifier,
+          builder: (context, currentPage, _) {
+            final activeIndex = currentPage.clamp(0, events.length - 1);
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List<Widget>.generate(events.length, (index) {
+                final isActive = index == activeIndex;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  height: 7,
+                  width: isActive ? 22 : 7,
+                  decoration: BoxDecoration(
+                    color: isActive ? scheme.primary : scheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                );
+              }),
             );
-          }),
+          },
         ),
       ],
     );
@@ -151,4 +143,3 @@ class EmptyEventsPlaceholder extends StatelessWidget {
     );
   }
 }
-

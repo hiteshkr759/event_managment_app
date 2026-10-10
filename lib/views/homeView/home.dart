@@ -7,26 +7,15 @@ import 'package:event_managment_app/widget/section_header.dart';
 import 'package:event_managment_app/widget/upcoming_event_tile.dart';
 import 'package:flutter/material.dart';
 
-class HomePage extends StatefulWidget {
+class HomePage extends StatelessWidget {
   const HomePage({super.key});
-
-  @override
-  State<HomePage> createState() => _HomePageState();
-}
-
-class _HomePageState extends State<HomePage> {
-  final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final searchController = TextEditingController(
+      text: searchQueryNotifier.value,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -35,23 +24,29 @@ class _HomePageState extends State<HomePage> {
         return Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1000),
-            child: ValueListenableBuilder<String>(
-              valueListenable: selectedCategoryNotifier,
-              builder: (context, selectedCategory, _) {
+            child: ListenableBuilder(
+              listenable: Listenable.merge([
+                selectedCategoryNotifier,
+                searchQueryNotifier,
+              ]),
+              builder: (context, _) {
+                final selectedCategory = selectedCategoryNotifier.value;
+                final searchQuery = searchQueryNotifier.value;
+
                 final featuredEvents = filterEventsByCategory(
                   featuredEventsNotifier.value,
                   selectedCategory,
-                  searchQuery: _searchQuery,
+                  searchQuery: searchQuery,
                 );
                 final nearbyEvents = filterEventsByCategory(
                   nearbyEventsNotifier.value,
                   selectedCategory,
-                  searchQuery: _searchQuery,
+                  searchQuery: searchQuery,
                 );
                 final upcomingEvents = filterEventsByCategory(
                   upcomingEventsNotifier.value,
                   selectedCategory,
-                  searchQuery: _searchQuery,
+                  searchQuery: searchQuery,
                 );
 
                 return CustomScrollView(
@@ -66,20 +61,22 @@ class _HomePageState extends State<HomePage> {
                             const _GreetingHeader(),
                             const SizedBox(height: 16),
                             TextField(
-                              controller: _searchController,
+                              controller: searchController,
                               onChanged: (value) {
-                                setState(() => _searchQuery = value);
+                                searchQueryNotifier.value = value;
+                                featuredPageNotifier.value = 0;
                               },
                               decoration: InputDecoration(
                                 hintText:
                                     'Search events, locations, categories...',
                                 prefixIcon: const Icon(Icons.search),
-                                suffixIcon: _searchQuery.isNotEmpty
+                                suffixIcon: searchQuery.isNotEmpty
                                     ? IconButton(
                                         icon: const Icon(Icons.clear),
                                         onPressed: () {
-                                          _searchController.clear();
-                                          setState(() => _searchQuery = '');
+                                          searchController.clear();
+                                          searchQueryNotifier.value = '';
+                                          featuredPageNotifier.value = 0;
                                         },
                                       )
                                     : null,
@@ -120,6 +117,7 @@ class _HomePageState extends State<HomePage> {
                               selected: category == selectedCategory,
                               onSelected: (_) {
                                 selectedCategoryNotifier.value = category;
+                                featuredPageNotifier.value = 0;
                               },
                             );
                           },

@@ -48,6 +48,10 @@ final ValueNotifier<String> selectedCategoryNotifier = ValueNotifier<String>(
   'All',
 );
 
+final ValueNotifier<String> searchQueryNotifier = ValueNotifier<String>('');
+
+final ValueNotifier<int> featuredPageNotifier = ValueNotifier<int>(0);
+
 final ValueNotifier<List<EventItem>> featuredEventsNotifier =
     ValueNotifier<List<EventItem>>(_sampleFeaturedEvents);
 
