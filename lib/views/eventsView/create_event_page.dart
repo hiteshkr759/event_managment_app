@@ -2,97 +2,134 @@ import 'package:event_managment_app/notifiers/home_events_notifier.dart';
 import 'package:event_managment_app/widget/auth_widgets.dart';
 import 'package:flutter/material.dart';
 
-class CreateEventPage extends StatelessWidget {
+class CreateEventPage extends StatefulWidget {
   const CreateEventPage({super.key});
+
+  @override
+  State<CreateEventPage> createState() => _CreateEventPageState();
+}
+
+class _CreateEventPageState extends State<CreateEventPage> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _dateController = TextEditingController(
+    text: 'Nov 15, 2026',
+  );
+  final TextEditingController _timeController = TextEditingController(
+    text: '06:00 PM',
+  );
+  final TextEditingController _venueController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _platformController = TextEditingController(
+    text: 'Google Meet',
+  );
+  final TextEditingController _meetingUrlController = TextEditingController();
+  final TextEditingController _priceController = TextEditingController(
+    text: '25',
+  );
+  final TextEditingController _bannerUrlController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _dateController.dispose();
+    _timeController.dispose();
+    _venueController.dispose();
+    _addressController.dispose();
+    _platformController.dispose();
+    _meetingUrlController.dispose();
+    _priceController.dispose();
+    _bannerUrlController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now.add(const Duration(days: 7)),
+      firstDate: now,
+      lastDate: DateTime(now.year + 3),
+    );
+    if (picked != null) {
+      const months = <String>[
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      final day = picked.day.toString().padLeft(2, '0');
+      _dateController.text =
+          '${months[picked.month - 1]} $day, ${picked.year}';
+    }
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 18, minute: 0),
+    );
+    if (picked != null && mounted) {
+      _timeController.text = picked.format(context);
+    }
+  }
+
+  Future<void> _submitForm() async {
+    final isValid = _formKey.currentState?.validate() ?? false;
+    if (!isValid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill in the highlighted required fields.'),
+        ),
+      );
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+
+    final mode = createEventModeNotifier.value;
+    final created = await createNewEvent(
+      title: _titleController.text,
+      category: createEventCategoryNotifier.value,
+      eventMode: mode,
+      date: _dateController.text,
+      time: _timeController.text,
+      description: _descriptionController.text,
+      isFree: createEventIsFreeNotifier.value,
+      priceText: _priceController.text,
+      isFeatured: createEventIsFeaturedNotifier.value,
+      venueName: _venueController.text,
+      cityAndAddress: _addressController.text,
+      onlinePlatform: _platformController.text,
+      meetingUrl: _meetingUrlController.text,
+      imageUrl: _bannerUrlController.text,
+    );
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Created ${created.isOnline ? 'Online' : 'Offline'} event "${created.title}"!',
+        ),
+      ),
+    );
+    Navigator.of(context).pop();
+  }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final formKey = GlobalKey<FormState>();
-
-    final titleController = TextEditingController();
-    final dateController = TextEditingController(text: 'Nov 15, 2026');
-    final timeController = TextEditingController(text: '06:00 PM');
-    final venueController = TextEditingController();
-    final addressController = TextEditingController();
-    final platformController = TextEditingController(text: 'Google Meet');
-    final meetingUrlController = TextEditingController();
-    final priceController = TextEditingController(text: '25');
-    final bannerUrlController = TextEditingController();
-    final descriptionController = TextEditingController();
-
-    Future<void> pickDate() async {
-      final now = DateTime.now();
-      final picked = await showDatePicker(
-        context: context,
-        initialDate: now.add(const Duration(days: 7)),
-        firstDate: now,
-        lastDate: DateTime(now.year + 3),
-      );
-      if (picked != null) {
-        const months = <String>[
-          'Jan',
-          'Feb',
-          'Mar',
-          'Apr',
-          'May',
-          'Jun',
-          'Jul',
-          'Aug',
-          'Sep',
-          'Oct',
-          'Nov',
-          'Dec',
-        ];
-        final day = picked.day.toString().padLeft(2, '0');
-        dateController.text =
-            '${months[picked.month - 1]} $day, ${picked.year}';
-      }
-    }
-
-    Future<void> pickTime() async {
-      final picked = await showTimePicker(
-        context: context,
-        initialTime: const TimeOfDay(hour: 18, minute: 0),
-      );
-      if (picked != null && context.mounted) {
-        timeController.text = picked.format(context);
-      }
-    }
-
-    Future<void> submitForm() async {
-      FocusScope.of(context).unfocus();
-      if (!formKey.currentState!.validate()) return;
-
-      final mode = createEventModeNotifier.value;
-      final created = await createNewEvent(
-        title: titleController.text,
-        category: createEventCategoryNotifier.value,
-        eventMode: mode,
-        date: dateController.text,
-        time: timeController.text,
-        description: descriptionController.text,
-        isFree: createEventIsFreeNotifier.value,
-        priceText: priceController.text,
-        isFeatured: createEventIsFeaturedNotifier.value,
-        venueName: venueController.text,
-        cityAndAddress: addressController.text,
-        onlinePlatform: platformController.text,
-        meetingUrl: meetingUrlController.text,
-        imageUrl: bannerUrlController.text,
-      );
-
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Created ${created.isOnline ? 'Online' : 'Offline'} event "${created.title}"!',
-          ),
-        ),
-      );
-      Navigator.of(context).pop();
-    }
-
     final categories = eventCategories.where((c) => c != 'All').toList();
 
     return Scaffold(
@@ -104,7 +141,8 @@ class CreateEventPage extends StatelessWidget {
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               child: Form(
-                key: formKey,
+                key: _formKey,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -163,7 +201,7 @@ class CreateEventPage extends StatelessWidget {
                                 const SizedBox(height: 16),
                                 if (!isOnline) ...[
                                   AuthTextField(
-                                    controller: venueController,
+                                    controller: _venueController,
                                     label: 'Venue Name',
                                     hint: 'e.g. Grand Convention Center',
                                     prefixIcon: Icons.business_outlined,
@@ -181,7 +219,7 @@ class CreateEventPage extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 12),
                                   AuthTextField(
-                                    controller: addressController,
+                                    controller: _addressController,
                                     label: 'City & Street Address',
                                     hint: 'e.g. Sector 4, Downtown',
                                     prefixIcon: Icons.map_outlined,
@@ -199,7 +237,7 @@ class CreateEventPage extends StatelessWidget {
                                   ),
                                 ] else ...[
                                   AuthTextField(
-                                    controller: platformController,
+                                    controller: _platformController,
                                     label: 'Online Platform',
                                     hint: 'e.g. Zoom, Google Meet, YouTube Live',
                                     prefixIcon: Icons.laptop_mac_outlined,
@@ -215,7 +253,7 @@ class CreateEventPage extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 12),
                                   AuthTextField(
-                                    controller: meetingUrlController,
+                                    controller: _meetingUrlController,
                                     label: 'Meeting / Stream Link URL',
                                     hint: 'https://meet.google.com/...',
                                     prefixIcon: Icons.link_rounded,
@@ -257,7 +295,7 @@ class CreateEventPage extends StatelessWidget {
                             ),
                             const SizedBox(height: 14),
                             AuthTextField(
-                              controller: titleController,
+                              controller: _titleController,
                               label: 'Event Title',
                               hint: 'e.g. Flutter Forward Extended Meetup',
                               prefixIcon: Icons.event_note_outlined,
@@ -299,13 +337,13 @@ class CreateEventPage extends StatelessWidget {
                               children: [
                                 Expanded(
                                   child: AuthTextField(
-                                    controller: dateController,
+                                    controller: _dateController,
                                     label: 'Date',
                                     hint: 'Nov 15, 2026',
                                     prefixIcon: Icons.calendar_today_outlined,
                                     suffixIcon: IconButton(
                                       icon: const Icon(Icons.edit_calendar),
-                                      onPressed: pickDate,
+                                      onPressed: _pickDate,
                                     ),
                                     validator: (val) =>
                                         (val == null || val.trim().isEmpty)
@@ -316,13 +354,13 @@ class CreateEventPage extends StatelessWidget {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: AuthTextField(
-                                    controller: timeController,
+                                    controller: _timeController,
                                     label: 'Start Time',
                                     hint: '06:00 PM',
                                     prefixIcon: Icons.access_time_outlined,
                                     suffixIcon: IconButton(
                                       icon: const Icon(Icons.schedule),
-                                      onPressed: pickTime,
+                                      onPressed: _pickTime,
                                     ),
                                     validator: (val) =>
                                         (val == null || val.trim().isEmpty)
@@ -361,7 +399,7 @@ class CreateEventPage extends StatelessWidget {
                                           bottom: 8,
                                         ),
                                         child: AuthTextField(
-                                          controller: priceController,
+                                          controller: _priceController,
                                           label: 'Ticket Price (USD)',
                                           hint: '25',
                                           prefixIcon:
@@ -406,7 +444,7 @@ class CreateEventPage extends StatelessWidget {
                             ),
                             const SizedBox(height: 8),
                             AuthTextField(
-                              controller: bannerUrlController,
+                              controller: _bannerUrlController,
                               label: 'Banner Image URL (Optional)',
                               hint: 'https://images.unsplash.com/...',
                               prefixIcon: Icons.image_outlined,
@@ -414,7 +452,7 @@ class CreateEventPage extends StatelessWidget {
                             ),
                             const SizedBox(height: 12),
                             TextFormField(
-                              controller: descriptionController,
+                              controller: _descriptionController,
                               maxLines: 3,
                               decoration: InputDecoration(
                                 labelText: 'Event Description',
@@ -427,6 +465,27 @@ class CreateEventPage extends StatelessWidget {
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
                                   borderSide: BorderSide.none,
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: BorderSide(
+                                    color: scheme.primary,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                errorBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: BorderSide(
+                                    color: scheme.error,
+                                    width: 1.2,
+                                  ),
+                                ),
+                                focusedErrorBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: BorderSide(
+                                    color: scheme.error,
+                                    width: 1.5,
+                                  ),
                                 ),
                               ),
                               validator: (val) {
@@ -444,7 +503,7 @@ class CreateEventPage extends StatelessWidget {
                                   width: double.infinity,
                                   height: 48,
                                   child: FilledButton.icon(
-                                    onPressed: loading ? null : submitForm,
+                                    onPressed: loading ? null : _submitForm,
                                     icon: loading
                                         ? const SizedBox(
                                             width: 18,

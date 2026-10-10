@@ -3,54 +3,72 @@ import 'package:event_managment_app/widget/auth_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class SignUp extends StatelessWidget {
+class SignUp extends StatefulWidget {
   const SignUp({super.key});
+
+  @override
+  State<SignUp> createState() => _SignUpState();
+}
+
+class _SignUpState extends State<SignUp> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _submitSignUp() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    FocusScope.of(context).unfocus();
+
+    try {
+      final response = await signUp(
+        _emailController.text.trim(),
+        _passwordController.text,
+        fullName: _nameController.text.trim(),
+        phone: _phoneController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      if (response.session != null) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      } else {
+        _showMessage(
+          'Account created! Please check your email to verify your account.',
+        );
+        Navigator.of(context).pop();
+      }
+    } on AuthException catch (e) {
+      if (mounted) _showMessage(e.message);
+    } catch (_) {
+      if (mounted) {
+        _showMessage('Could not create account. Please try again.');
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final formKey = GlobalKey<FormState>();
-    final nameController = TextEditingController();
-    final emailController = TextEditingController();
-    final phoneController = TextEditingController();
-    final passwordController = TextEditingController();
-    final confirmPasswordController = TextEditingController();
-
-    void showMessage(String message) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
-    }
-
-    Future<void> submitSignUp() async {
-      FocusScope.of(context).unfocus();
-      if (!formKey.currentState!.validate()) return;
-
-      try {
-        final response = await signUp(
-          emailController.text.trim(),
-          passwordController.text,
-          fullName: nameController.text.trim(),
-          phone: phoneController.text.trim(),
-        );
-
-        if (!context.mounted) return;
-
-        if (response.session != null) {
-          // Signed in immediately; pop back so AuthGate shows ViewTree
-          Navigator.of(context).popUntil((route) => route.isFirst);
-        } else {
-          showMessage(
-            'Account created! Please check your email to verify your account.',
-          );
-          Navigator.of(context).pop();
-        }
-      } on AuthException catch (e) {
-        showMessage(e.message);
-      } catch (_) {
-        showMessage('Could not create account. Please try again.');
-      }
-    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Create Account'), centerTitle: true),
@@ -61,7 +79,8 @@ class SignUp extends StatelessWidget {
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
               child: Form(
-                key: formKey,
+                key: _formKey,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -90,7 +109,7 @@ class SignUp extends StatelessWidget {
                             ),
                             const SizedBox(height: 14),
                             AuthTextField(
-                              controller: nameController,
+                              controller: _nameController,
                               label: 'Full Name',
                               hint: 'Enter your full name',
                               prefixIcon: Icons.person_outline,
@@ -105,7 +124,7 @@ class SignUp extends StatelessWidget {
                             ),
                             const SizedBox(height: 14),
                             AuthTextField(
-                              controller: emailController,
+                              controller: _emailController,
                               label: 'Email Address',
                               hint: 'you@example.com',
                               prefixIcon: Icons.email_outlined,
@@ -121,7 +140,7 @@ class SignUp extends StatelessWidget {
                             ),
                             const SizedBox(height: 14),
                             AuthTextField(
-                              controller: phoneController,
+                              controller: _phoneController,
                               label: 'Phone Number (Optional)',
                               hint: '+1 234 567 8900',
                               prefixIcon: Icons.phone_outlined,
@@ -142,7 +161,7 @@ class SignUp extends StatelessWidget {
                               valueListenable: obscureSignUpPasswordNotifier,
                               builder: (context, obscure, _) {
                                 return AuthTextField(
-                                  controller: passwordController,
+                                  controller: _passwordController,
                                   label: 'Password',
                                   hint: 'At least 6 characters',
                                   prefixIcon: Icons.lock_outline,
@@ -173,7 +192,7 @@ class SignUp extends StatelessWidget {
                               valueListenable: obscureConfirmPasswordNotifier,
                               builder: (context, obscure, _) {
                                 return AuthTextField(
-                                  controller: confirmPasswordController,
+                                  controller: _confirmPasswordController,
                                   label: 'Confirm Password',
                                   hint: 'Re-enter your password',
                                   prefixIcon: Icons.verified_user_outlined,
@@ -191,7 +210,7 @@ class SignUp extends StatelessWidget {
                                     },
                                   ),
                                   validator: (value) {
-                                    if (value != passwordController.text) {
+                                    if (value != _passwordController.text) {
                                       return 'Passwords do not match';
                                     }
                                     return null;
@@ -206,7 +225,7 @@ class SignUp extends StatelessWidget {
                                 return SizedBox(
                                   height: 48,
                                   child: FilledButton.icon(
-                                    onPressed: isLoading ? null : submitSignUp,
+                                    onPressed: isLoading ? null : _submitSignUp,
                                     icon: isLoading
                                         ? const SizedBox(
                                             width: 18,
@@ -253,4 +272,3 @@ class SignUp extends StatelessWidget {
     );
   }
 }
-

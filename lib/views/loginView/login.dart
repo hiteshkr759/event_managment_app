@@ -4,34 +4,49 @@ import 'package:event_managment_app/widget/auth_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class Login extends StatelessWidget {
+class Login extends StatefulWidget {
   const Login({super.key});
+
+  @override
+  State<Login> createState() => _LoginState();
+}
+
+class _LoginState extends State<Login> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _submitLogin() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    FocusScope.of(context).unfocus();
+
+    try {
+      await login(_emailController.text.trim(), _passwordController.text);
+    } on AuthException catch (e) {
+      if (mounted) _showMessage(e.message);
+    } catch (_) {
+      if (mounted) {
+        _showMessage('An unexpected error occurred. Please try again.');
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final formKey = GlobalKey<FormState>();
-    final emailController = TextEditingController();
-    final passwordController = TextEditingController();
-
-    void showMessage(String message) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
-    }
-
-    Future<void> submitLogin() async {
-      FocusScope.of(context).unfocus();
-      if (!formKey.currentState!.validate()) return;
-
-      try {
-        await login(emailController.text.trim(), passwordController.text);
-      } on AuthException catch (e) {
-        showMessage(e.message);
-      } catch (_) {
-        showMessage('An unexpected error occurred. Please try again.');
-      }
-    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Event Management'), centerTitle: true),
@@ -42,7 +57,8 @@ class Login extends StatelessWidget {
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
               child: Form(
-                key: formKey,
+                key: _formKey,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -71,7 +87,7 @@ class Login extends StatelessWidget {
                             ),
                             const SizedBox(height: 14),
                             AuthTextField(
-                              controller: emailController,
+                              controller: _emailController,
                               label: 'Email Address',
                               hint: 'you@example.com',
                               prefixIcon: Icons.email_outlined,
@@ -90,7 +106,7 @@ class Login extends StatelessWidget {
                               valueListenable: obscureLoginPasswordNotifier,
                               builder: (context, obscure, _) {
                                 return AuthTextField(
-                                  controller: passwordController,
+                                  controller: _passwordController,
                                   label: 'Password',
                                   hint: 'Enter your password',
                                   prefixIcon: Icons.lock_outline,
@@ -123,7 +139,7 @@ class Login extends StatelessWidget {
                                 return SizedBox(
                                   height: 48,
                                   child: FilledButton.icon(
-                                    onPressed: isLoading ? null : submitLogin,
+                                    onPressed: isLoading ? null : _submitLogin,
                                     icon: isLoading
                                         ? const SizedBox(
                                             width: 18,
