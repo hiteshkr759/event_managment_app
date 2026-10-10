@@ -16,7 +16,7 @@ class SignUp extends StatelessWidget {
       final response = await auth.registerAccount();
       if (!formContext.mounted) return;
 
-      if (response.session != null) {
+      if (response.session != null || auth.isLoggedIn) {
         Navigator.of(formContext).popUntil((route) => route.isFirst);
       } else {
         ScaffoldMessenger.of(formContext).showSnackBar(

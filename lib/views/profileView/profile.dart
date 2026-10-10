@@ -80,6 +80,9 @@ class ProfilePage extends StatelessWidget {
                           backgroundImage: profile.avatarUrl != null
                               ? NetworkImage(profile.avatarUrl!)
                               : null,
+                          onBackgroundImageError: profile.avatarUrl != null
+                              ? (_, _) {}
+                              : null,
                           child: profile.avatarUrl == null
                               ? Text(
                                   profile.initial,

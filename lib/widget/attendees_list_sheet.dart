@@ -99,6 +99,9 @@ class AttendeesListSheet extends StatelessWidget {
                     backgroundImage: attendee.avatarUrl != null
                         ? NetworkImage(attendee.avatarUrl!)
                         : null,
+                    onBackgroundImageError: attendee.avatarUrl != null
+                        ? (_, _) {}
+                        : null,
                     child: attendee.avatarUrl == null
                         ? Text(
                             initial,
