@@ -38,7 +38,10 @@ class FeaturedEventsCarousel extends StatelessWidget {
         SizedBox(
           height: height,
           child: PageView.builder(
-            controller: eventsProvider.featuredPageController,
+            controller: PageController(
+              viewportFraction: 0.88,
+              initialPage: activeIndex,
+            ),
             itemCount: events.length,
             onPageChanged: eventsProvider.setFeaturedPageIndex,
             itemBuilder: (context, index) {

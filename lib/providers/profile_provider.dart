@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -69,7 +70,6 @@ class Profile {
 }
 
 class ProfileProvider extends ChangeNotifier {
-  final GlobalKey<FormState> formKey = GlobalKey<FormState>();
   final TextEditingController nameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
@@ -77,11 +77,32 @@ class ProfileProvider extends ChangeNotifier {
   Profile? _profile;
   bool _isLoading = false;
 
+  ProfileProvider() {
+    // Initialize synchronously from current session without calling notifyListeners during build
+    final user = _client.auth.currentUser;
+    if (user != null) {
+      _profile = Profile.fromUser(user);
+      _syncControllers();
+      Future.microtask(_fetchRemoteProfileRow);
+    }
+  }
+
   Profile? get profile => _profile;
   bool get isLoading => _isLoading;
   bool get isAdmin => _profile?.isAdmin ?? false;
 
   SupabaseClient get _client => Supabase.instance.client;
+
+  void _safeNotify() {
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
+    } else {
+      notifyListeners();
+    }
+  }
 
   void _syncControllers() {
     nameController.text = _profile?.fullName ?? '';
@@ -89,17 +110,9 @@ class ProfileProvider extends ChangeNotifier {
     phoneController.text = _profile?.phone ?? '';
   }
 
-  Future<void> loadProfile() async {
+  Future<void> _fetchRemoteProfileRow() async {
     final user = _client.auth.currentUser;
-    if (user == null) {
-      clearProfile();
-      return;
-    }
-
-    _profile = Profile.fromUser(user);
-    _syncControllers();
-    notifyListeners();
-
+    if (user == null) return;
     try {
       final row = await _client
           .from('profiles')
@@ -119,11 +132,22 @@ class ProfileProvider extends ChangeNotifier {
           createdAt: DateTime.tryParse(user.createdAt),
         );
         _syncControllers();
-        notifyListeners();
+        _safeNotify();
       }
-    } catch (_) {
-      // Keep metadata-based profile if table is not migrated yet
+    } catch (_) {}
+  }
+
+  Future<void> loadProfile() async {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      clearProfile();
+      return;
     }
+
+    _profile = Profile.fromUser(user);
+    _syncControllers();
+    _safeNotify();
+    await _fetchRemoteProfileRow();
   }
 
   void clearProfile() {
@@ -131,12 +155,12 @@ class ProfileProvider extends ChangeNotifier {
     nameController.clear();
     emailController.clear();
     phoneController.clear();
-    notifyListeners();
+    _safeNotify();
   }
 
   Future<void> saveProfile() async {
     _isLoading = true;
-    notifyListeners();
+    _safeNotify();
 
     final fullName = nameController.text.trim();
     final phone = phoneController.text.trim();
@@ -172,7 +196,7 @@ class ProfileProvider extends ChangeNotifier {
       } catch (_) {}
     } finally {
       _isLoading = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -180,7 +204,7 @@ class ProfileProvider extends ChangeNotifier {
     if (_profile == null) return;
     final normalized = newRole.toLowerCase() == 'admin' ? 'admin' : 'user';
     _profile = _profile!.copyWith(role: normalized);
-    notifyListeners();
+    _safeNotify();
 
     try {
       await _client.auth.updateUser(
@@ -208,7 +232,7 @@ class ProfileProvider extends ChangeNotifier {
     if (picked == null) return;
 
     _isLoading = true;
-    notifyListeners();
+    _safeNotify();
     try {
       final bytes = await picked.readAsBytes();
       final path = '${user.id}/avatar.jpg';
@@ -230,7 +254,7 @@ class ProfileProvider extends ChangeNotifier {
       }
     } finally {
       _isLoading = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -242,4 +266,3 @@ class ProfileProvider extends ChangeNotifier {
     super.dispose();
   }
 }
-

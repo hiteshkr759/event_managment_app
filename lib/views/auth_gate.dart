@@ -9,7 +9,9 @@ class AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isLoggedIn = context.watch<AuthProvider>().isLoggedIn;
+    final isLoggedIn = context.select<AuthProvider, bool>(
+      (auth) => auth.isLoggedIn,
+    );
     return isLoggedIn ? const ViewTree() : const Login();
   }
 }

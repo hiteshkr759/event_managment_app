@@ -30,12 +30,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider<ProfileProvider>(
           create: (_) => ProfileProvider(),
         ),
-        ChangeNotifierProxyProvider<ProfileProvider, AuthProvider>(
-          create: (context) => AuthProvider(
-            profileProvider: context.read<ProfileProvider>(),
-          ),
-          update: (_, profileProvider, previous) =>
-              previous ?? AuthProvider(profileProvider: profileProvider),
+        ChangeNotifierProvider<AuthProvider>(
+          create: (context) => AuthProvider(context.read<ProfileProvider>()),
         ),
         ChangeNotifierProvider<EventsProvider>(
           create: (_) => EventsProvider(),

@@ -53,12 +53,11 @@ class CreateEventPage extends StatelessWidget {
     }
   }
 
-  Future<void> _submitForm(BuildContext context) async {
-    final eventsProvider = context.read<EventsProvider>();
-    final isValid =
-        eventsProvider.createEventFormKey.currentState?.validate() ?? false;
+  Future<void> _submitForm(BuildContext formContext) async {
+    final eventsProvider = formContext.read<EventsProvider>();
+    final isValid = Form.maybeOf(formContext)?.validate() ?? false;
     if (!isValid) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(formContext).showSnackBar(
         const SnackBar(
           content: Text('Please fill in the highlighted required fields.'),
         ),
@@ -66,20 +65,20 @@ class CreateEventPage extends StatelessWidget {
       return;
     }
 
-    FocusScope.of(context).unfocus();
+    FocusScope.of(formContext).unfocus();
 
-    final organizer = context.read<ProfileProvider>().profile;
+    final organizer = formContext.read<ProfileProvider>().profile;
     final created = await eventsProvider.submitNewEvent(organizer);
 
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    if (!formContext.mounted) return;
+    ScaffoldMessenger.of(formContext).showSnackBar(
       SnackBar(
         content: Text(
           'Created ${created.isOnline ? 'Online' : 'Offline'} event "${created.title}"!',
         ),
       ),
     );
-    Navigator.of(context).pop();
+    Navigator.of(formContext).pop();
   }
 
   @override
@@ -95,27 +94,28 @@ class CreateEventPage extends StatelessWidget {
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               child: Form(
-                key: eventsProvider.createEventFormKey,
                 autovalidateMode: AutovalidateMode.onUserInteraction,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const AuthHeaderBanner(
-                      badgeText: 'ADMIN • ORGANIZER',
-                      title: 'Host an Event',
-                      subtitle:
-                          'Choose Offline (In-Person) or Online (Virtual) and publish your event to all users.',
-                      icon: Icons.add_reaction_rounded,
-                    ),
-                    const SizedBox(height: 20),
-                    const EventModeFormCard(),
-                    const SizedBox(height: 16),
-                    EventDetailsFormCard(
-                      onPickDate: () => _pickDate(context, eventsProvider),
-                      onPickTime: () => _pickTime(context, eventsProvider),
-                      onSubmit: () => _submitForm(context),
-                    ),
-                  ],
+                child: Builder(
+                  builder: (formContext) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const AuthHeaderBanner(
+                        badgeText: 'ADMIN • ORGANIZER',
+                        title: 'Host an Event',
+                        subtitle:
+                            'Choose Offline (In-Person) or Online (Virtual) and publish your event to all users.',
+                        icon: Icons.add_reaction_rounded,
+                      ),
+                      const SizedBox(height: 20),
+                      const EventModeFormCard(),
+                      const SizedBox(height: 16),
+                      EventDetailsFormCard(
+                        onPickDate: () => _pickDate(formContext, eventsProvider),
+                        onPickTime: () => _pickTime(formContext, eventsProvider),
+                        onSubmit: () => _submitForm(formContext),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

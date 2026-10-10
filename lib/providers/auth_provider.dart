@@ -1,16 +1,15 @@
 import 'package:event_managment_app/providers/profile_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthProvider extends ChangeNotifier {
   final ProfileProvider _profileProvider;
 
-  // Persistent FormKeys & TextEditingControllers for Stateless Login & SignUp views
-  final GlobalKey<FormState> loginFormKey = GlobalKey<FormState>();
+  // Persistent TextEditingControllers for Stateless Login & SignUp views
   final TextEditingController loginEmailController = TextEditingController();
   final TextEditingController loginPasswordController = TextEditingController();
 
-  final GlobalKey<FormState> signUpFormKey = GlobalKey<FormState>();
   final TextEditingController signUpNameController = TextEditingController();
   final TextEditingController signUpEmailController = TextEditingController();
   final TextEditingController signUpPhoneController = TextEditingController();
@@ -25,7 +24,7 @@ class AuthProvider extends ChangeNotifier {
   bool _obscureSignUpPassword = true;
   bool _obscureConfirmPassword = true;
 
-  AuthProvider({required this._profileProvider}) {
+  AuthProvider(this._profileProvider) {
     _initAuth();
   }
 
@@ -37,41 +36,49 @@ class AuthProvider extends ChangeNotifier {
 
   SupabaseClient get _supabase => Supabase.instance.client;
 
+  void _safeNotify() {
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
+    } else {
+      notifyListeners();
+    }
+  }
+
   void _initAuth() {
     _isLoggedIn = _supabase.auth.currentSession != null;
-    if (_isLoggedIn) {
-      _profileProvider.loadProfile();
-    }
 
     _supabase.auth.onAuthStateChange.listen((data) {
       _isLoggedIn = data.session != null;
       if (data.event == AuthChangeEvent.signedIn) {
-        _profileProvider.loadProfile();
+        Future.microtask(_profileProvider.loadProfile);
       } else if (data.event == AuthChangeEvent.signedOut) {
-        _profileProvider.clearProfile();
+        Future.microtask(_profileProvider.clearProfile);
       }
-      notifyListeners();
+      _safeNotify();
     });
   }
 
   void toggleLoginPasswordVisibility() {
     _obscureLoginPassword = !_obscureLoginPassword;
-    notifyListeners();
+    _safeNotify();
   }
 
   void toggleSignUpPasswordVisibility() {
     _obscureSignUpPassword = !_obscureSignUpPassword;
-    notifyListeners();
+    _safeNotify();
   }
 
   void toggleConfirmPasswordVisibility() {
     _obscureConfirmPassword = !_obscureConfirmPassword;
-    notifyListeners();
+    _safeNotify();
   }
 
   Future<void> signIn() async {
     _isLoading = true;
-    notifyListeners();
+    _safeNotify();
     try {
       await _supabase.auth.signInWithPassword(
         email: loginEmailController.text.trim(),
@@ -80,13 +87,13 @@ class AuthProvider extends ChangeNotifier {
       loginPasswordController.clear();
     } finally {
       _isLoading = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
   Future<AuthResponse> registerAccount() async {
     _isLoading = true;
-    notifyListeners();
+    _safeNotify();
     try {
       final fullName = signUpNameController.text.trim();
       final phone = signUpPhoneController.text.trim();
@@ -104,7 +111,7 @@ class AuthProvider extends ChangeNotifier {
       return response;
     } finally {
       _isLoading = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 

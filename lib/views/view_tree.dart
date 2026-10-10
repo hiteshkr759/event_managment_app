@@ -18,13 +18,15 @@ class ViewTree extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentIndex = context.watch<NavigationProvider>().currentIndex;
+    final currentIndex = context.select<NavigationProvider, int>(
+      (nav) => nav.currentIndex,
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Event Management'), centerTitle: true),
       drawer: const EventDrawer(),
       bottomNavigationBar: const Navigation(),
-      body: _pages[currentIndex],
+      body: IndexedStack(index: currentIndex, children: _pages),
     );
   }
 }

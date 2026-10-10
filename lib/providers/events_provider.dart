@@ -1,6 +1,7 @@
 import 'package:event_managment_app/models/event_model.dart';
 import 'package:event_managment_app/providers/profile_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class EventsProvider extends ChangeNotifier {
@@ -8,9 +9,6 @@ class EventsProvider extends ChangeNotifier {
 
   // Home page state & controller
   final TextEditingController homeSearchController = TextEditingController();
-  final PageController featuredPageController = PageController(
-    viewportFraction: 0.88,
-  );
   String _homeCategory = 'All';
   String _homeSearchQuery = '';
   int _featuredPageIndex = 0;
@@ -22,7 +20,6 @@ class EventsProvider extends ChangeNotifier {
   String _allSearchQuery = '';
 
   // Create Event form state & persistent controllers
-  final GlobalKey<FormState> createEventFormKey = GlobalKey<FormState>();
   final TextEditingController titleController = TextEditingController();
   final TextEditingController dateController = TextEditingController(
     text: 'Nov 15, 2026',
@@ -47,6 +44,17 @@ class EventsProvider extends ChangeNotifier {
   bool _createIsFree = true;
   bool _createIsFeatured = false;
   bool _isCreating = false;
+
+  void _safeNotify() {
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
+    } else {
+      notifyListeners();
+    }
+  }
 
   // Getters
   List<EventItem> get allEvents => _allEvents;
@@ -123,13 +131,13 @@ class EventsProvider extends ChangeNotifier {
   void setHomeCategory(String category) {
     _homeCategory = category;
     _featuredPageIndex = 0;
-    notifyListeners();
+    _safeNotify();
   }
 
   void setHomeSearchQuery(String query) {
     _homeSearchQuery = query;
     _featuredPageIndex = 0;
-    notifyListeners();
+    _safeNotify();
   }
 
   void clearHomeSearch() {
@@ -140,23 +148,23 @@ class EventsProvider extends ChangeNotifier {
   void setFeaturedPageIndex(int index) {
     if (_featuredPageIndex == index) return;
     _featuredPageIndex = index;
-    notifyListeners();
+    _safeNotify();
   }
 
   // All Events page mutators
   void setAllModeFilter(String filter) {
     _allModeFilter = filter;
-    notifyListeners();
+    _safeNotify();
   }
 
   void setAllCategory(String category) {
     _allCategory = category;
-    notifyListeners();
+    _safeNotify();
   }
 
   void setAllSearchQuery(String query) {
     _allSearchQuery = query;
-    notifyListeners();
+    _safeNotify();
   }
 
   void clearAllSearch() {
@@ -167,22 +175,22 @@ class EventsProvider extends ChangeNotifier {
   // Create Event form mutators
   void setCreateMode(String mode) {
     _createMode = mode;
-    notifyListeners();
+    _safeNotify();
   }
 
   void setCreateCategory(String category) {
     _createCategory = category;
-    notifyListeners();
+    _safeNotify();
   }
 
   void setCreateIsFree(bool isFree) {
     _createIsFree = isFree;
-    notifyListeners();
+    _safeNotify();
   }
 
   void setCreateIsFeatured(bool isFeatured) {
     _createIsFeatured = isFeatured;
-    notifyListeners();
+    _safeNotify();
   }
 
   void resetCreateEventForm() {
@@ -196,7 +204,7 @@ class EventsProvider extends ChangeNotifier {
     _createCategory = 'Tech';
     _createIsFree = true;
     _createIsFeatured = false;
-    notifyListeners();
+    _safeNotify();
   }
 
   Future<bool> toggleAttendance(EventItem event, Profile? profile) async {
@@ -234,7 +242,7 @@ class EventsProvider extends ChangeNotifier {
     _allEvents = _allEvents
         .map((item) => item.id == event.id ? updatedEvent : item)
         .toList();
-    notifyListeners();
+    _safeNotify();
 
     try {
       final client = Supabase.instance.client;
@@ -256,7 +264,7 @@ class EventsProvider extends ChangeNotifier {
 
   Future<EventItem> submitNewEvent(Profile? organizer) async {
     _isCreating = true;
-    notifyListeners();
+    _safeNotify();
 
     try {
       final isOnline = _createMode.toLowerCase() == 'online';
@@ -311,7 +319,7 @@ class EventsProvider extends ChangeNotifier {
       );
 
       _allEvents = <EventItem>[newEvent, ..._allEvents];
-      notifyListeners();
+      _safeNotify();
 
       try {
         final client = Supabase.instance.client;
@@ -342,14 +350,13 @@ class EventsProvider extends ChangeNotifier {
       return newEvent;
     } finally {
       _isCreating = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
   @override
   void dispose() {
     homeSearchController.dispose();
-    featuredPageController.dispose();
     allSearchController.dispose();
     titleController.dispose();
     dateController.dispose();
@@ -364,4 +371,3 @@ class EventsProvider extends ChangeNotifier {
     super.dispose();
   }
 }
-
