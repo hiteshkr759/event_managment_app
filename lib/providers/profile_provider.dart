@@ -1,0 +1,245 @@
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class Profile {
+  final String id;
+  final String email;
+  final String? fullName;
+  final String? phone;
+  final String? bio;
+  final String? avatarUrl;
+  final String role; // 'user' or 'admin'
+  final DateTime? createdAt;
+
+  const Profile({
+    required this.id,
+    required this.email,
+    this.fullName,
+    this.phone,
+    this.bio,
+    this.avatarUrl,
+    this.role = 'user',
+    this.createdAt,
+  });
+
+  bool get isAdmin => role.toLowerCase() == 'admin';
+
+  String get displayName =>
+      (fullName?.trim().isNotEmpty ?? false) ? fullName!.trim() : 'Explorer';
+
+  String get initial => (fullName?.trim().isNotEmpty ?? false)
+      ? fullName!.trim()[0].toUpperCase()
+      : (email.isNotEmpty ? email[0].toUpperCase() : '?');
+
+  Profile copyWith({
+    String? fullName,
+    String? phone,
+    String? bio,
+    String? avatarUrl,
+    String? role,
+  }) {
+    return Profile(
+      id: id,
+      email: email,
+      fullName: fullName ?? this.fullName,
+      phone: phone ?? this.phone,
+      bio: bio ?? this.bio,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      role: role ?? this.role,
+      createdAt: createdAt,
+    );
+  }
+
+  factory Profile.fromUser(User user, {String? overrideRole}) {
+    final meta = user.userMetadata ?? {};
+    final resolvedRole =
+        overrideRole ?? (meta['role'] as String?)?.toLowerCase() ?? 'user';
+    return Profile(
+      id: user.id,
+      email: user.email ?? '',
+      fullName: meta['full_name'] as String?,
+      phone: meta['phone'] as String?,
+      bio: meta['bio'] as String?,
+      avatarUrl: meta['avatar_url'] as String?,
+      role: resolvedRole == 'admin' ? 'admin' : 'user',
+      createdAt: DateTime.tryParse(user.createdAt),
+    );
+  }
+}
+
+class ProfileProvider extends ChangeNotifier {
+  final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController phoneController = TextEditingController();
+
+  Profile? _profile;
+  bool _isLoading = false;
+
+  Profile? get profile => _profile;
+  bool get isLoading => _isLoading;
+  bool get isAdmin => _profile?.isAdmin ?? false;
+
+  SupabaseClient get _client => Supabase.instance.client;
+
+  void _syncControllers() {
+    nameController.text = _profile?.fullName ?? '';
+    emailController.text = _profile?.email ?? '';
+    phoneController.text = _profile?.phone ?? '';
+  }
+
+  Future<void> loadProfile() async {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      clearProfile();
+      return;
+    }
+
+    _profile = Profile.fromUser(user);
+    _syncControllers();
+    notifyListeners();
+
+    try {
+      final row = await _client
+          .from('profiles')
+          .select('role, full_name, phone, bio, avatar_url')
+          .eq('id', user.id)
+          .maybeSingle();
+      if (row != null) {
+        _profile = Profile(
+          id: user.id,
+          email: user.email ?? '',
+          fullName: (row['full_name'] as String?) ?? _profile?.fullName,
+          phone: (row['phone'] as String?) ?? _profile?.phone,
+          bio: (row['bio'] as String?) ?? _profile?.bio,
+          avatarUrl: (row['avatar_url'] as String?) ?? _profile?.avatarUrl,
+          role: ((row['role'] as String?) ?? _profile?.role ?? 'user')
+              .toLowerCase(),
+          createdAt: DateTime.tryParse(user.createdAt),
+        );
+        _syncControllers();
+        notifyListeners();
+      }
+    } catch (_) {
+      // Keep metadata-based profile if table is not migrated yet
+    }
+  }
+
+  void clearProfile() {
+    _profile = null;
+    nameController.clear();
+    emailController.clear();
+    phoneController.clear();
+    notifyListeners();
+  }
+
+  Future<void> saveProfile() async {
+    _isLoading = true;
+    notifyListeners();
+
+    final fullName = nameController.text.trim();
+    final phone = phoneController.text.trim();
+    final currentRole = _profile?.role ?? 'user';
+
+    try {
+      final res = await _client.auth.updateUser(
+        UserAttributes(
+          data: {
+            'full_name': fullName,
+            'phone': phone,
+            'bio': _profile?.bio,
+            'role': currentRole,
+          },
+        ),
+      );
+      if (res.user != null) {
+        _profile = Profile.fromUser(res.user!, overrideRole: currentRole);
+        _syncControllers();
+      }
+      try {
+        final user = _client.auth.currentUser;
+        if (user != null) {
+          await _client.from('profiles').upsert({
+            'id': user.id,
+            'email': user.email ?? '',
+            'full_name': fullName,
+            'phone': phone,
+            'bio': _profile?.bio,
+            'role': currentRole,
+          });
+        }
+      } catch (_) {}
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateRole(String newRole) async {
+    if (_profile == null) return;
+    final normalized = newRole.toLowerCase() == 'admin' ? 'admin' : 'user';
+    _profile = _profile!.copyWith(role: normalized);
+    notifyListeners();
+
+    try {
+      await _client.auth.updateUser(
+        UserAttributes(data: {'role': normalized}),
+      );
+    } catch (_) {}
+
+    try {
+      await _client
+          .from('profiles')
+          .update({'role': normalized})
+          .eq('id', _profile!.id);
+    } catch (_) {}
+  }
+
+  Future<void> uploadAvatar() async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      imageQuality: 80,
+    );
+    if (picked == null) return;
+
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final bytes = await picked.readAsBytes();
+      final path = '${user.id}/avatar.jpg';
+
+      await _client.storage.from('avatars').uploadBinary(
+        path,
+        bytes,
+        fileOptions: const FileOptions(upsert: true, contentType: 'image/jpg'),
+      );
+
+      final url =
+          '${_client.storage.from('avatars').getPublicUrl(path)}?t=${DateTime.now().millisecondsSinceEpoch}';
+
+      final res = await _client.auth.updateUser(
+        UserAttributes(data: {'avatar_url': url}),
+      );
+      if (res.user != null) {
+        _profile = Profile.fromUser(res.user!, overrideRole: _profile?.role);
+      }
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    phoneController.dispose();
+    super.dispose();
+  }
+}
+

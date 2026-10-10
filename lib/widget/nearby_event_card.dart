@@ -1,4 +1,4 @@
-import 'package:event_managment_app/notifiers/home_events_notifier.dart';
+import 'package:event_managment_app/models/event_model.dart';
 import 'package:event_managment_app/widget/event_banner_image.dart';
 import 'package:flutter/material.dart';
 
@@ -28,7 +28,6 @@ class NearbyEventCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Top image area with distance & price badges
               SizedBox(
                 height: 115,
                 width: double.infinity,
@@ -94,7 +93,6 @@ class NearbyEventCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // Bottom text details
               Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(
@@ -173,4 +171,3 @@ class NearbyEventCard extends StatelessWidget {
     );
   }
 }
-

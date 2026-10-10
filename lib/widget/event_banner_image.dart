@@ -1,4 +1,4 @@
-import 'package:event_managment_app/notifiers/home_events_notifier.dart';
+import 'package:event_managment_app/models/event_model.dart';
 import 'package:flutter/material.dart';
 
 /// Displays an event image from the network, or a gradient + icon fallback
@@ -34,4 +34,3 @@ class EventBannerImage extends StatelessWidget {
     );
   }
 }
-

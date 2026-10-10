@@ -1,3 +1,1 @@
-import 'package:flutter/material.dart';
-
-final ValueNotifier<int> eventNotifier = ValueNotifier<int>(0);
+export 'package:event_managment_app/providers/navigation_provider.dart';

@@ -1,7 +1,9 @@
-import 'package:event_managment_app/notifiers/home_events_notifier.dart';
+import 'package:event_managment_app/models/event_model.dart';
+import 'package:event_managment_app/providers/events_provider.dart';
 import 'package:event_managment_app/widget/featured_event_card.dart';
 import 'package:event_managment_app/widget/nearby_event_card.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 /// Reusable horizontal carousel with page indicator dots for Featured Events.
 class FeaturedEventsCarousel extends StatelessWidget {
@@ -25,16 +27,20 @@ class FeaturedEventsCarousel extends StatelessWidget {
     }
 
     final scheme = Theme.of(context).colorScheme;
-    final controller = PageController(viewportFraction: 0.88);
+    final eventsProvider = context.watch<EventsProvider>();
+    final activeIndex = eventsProvider.featuredPageIndex.clamp(
+      0,
+      events.length - 1,
+    );
 
     return Column(
       children: [
         SizedBox(
           height: height,
           child: PageView.builder(
-            controller: controller,
+            controller: eventsProvider.featuredPageController,
             itemCount: events.length,
-            onPageChanged: (index) => featuredPageNotifier.value = index,
+            onPageChanged: eventsProvider.setFeaturedPageIndex,
             itemBuilder: (context, index) {
               final event = events[index];
               return Padding(
@@ -48,28 +54,21 @@ class FeaturedEventsCarousel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        // Page indicator dots
-        ValueListenableBuilder<int>(
-          valueListenable: featuredPageNotifier,
-          builder: (context, currentPage, _) {
-            final activeIndex = currentPage.clamp(0, events.length - 1);
-            return Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List<Widget>.generate(events.length, (index) {
-                final isActive = index == activeIndex;
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  height: 7,
-                  width: isActive ? 22 : 7,
-                  decoration: BoxDecoration(
-                    color: isActive ? scheme.primary : scheme.outlineVariant,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                );
-              }),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List<Widget>.generate(events.length, (index) {
+            final isActive = index == activeIndex;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              height: 7,
+              width: isActive ? 22 : 7,
+              decoration: BoxDecoration(
+                color: isActive ? scheme.primary : scheme.outlineVariant,
+                borderRadius: BorderRadius.circular(8),
+              ),
             );
-          },
+          }),
         ),
       ],
     );

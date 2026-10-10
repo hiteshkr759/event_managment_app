@@ -1,67 +1,46 @@
-import 'package:event_managment_app/notifiers/auth_notifier.dart';
+import 'package:event_managment_app/providers/auth_provider.dart';
 import 'package:event_managment_app/widget/auth_widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class SignUp extends StatefulWidget {
+class SignUp extends StatelessWidget {
   const SignUp({super.key});
 
-  @override
-  State<SignUp> createState() => _SignUpState();
-}
-
-class _SignUpState extends State<SignUp> {
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController =
-      TextEditingController();
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _phoneController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
-    super.dispose();
-  }
-
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  Future<void> _submitSignUp() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+  Future<void> _submitSignUp(BuildContext context) async {
+    final auth = context.read<AuthProvider>();
+    if (!(auth.signUpFormKey.currentState?.validate() ?? false)) return;
     FocusScope.of(context).unfocus();
 
     try {
-      final response = await signUp(
-        _emailController.text.trim(),
-        _passwordController.text,
-        fullName: _nameController.text.trim(),
-        phone: _phoneController.text.trim(),
-      );
-
-      if (!mounted) return;
+      final response = await auth.registerAccount();
+      if (!context.mounted) return;
 
       if (response.session != null) {
         Navigator.of(context).popUntil((route) => route.isFirst);
       } else {
-        _showMessage(
-          'Account created! Please check your email to verify your account.',
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Account created! Please check your email to verify your account.',
+            ),
+          ),
         );
         Navigator.of(context).pop();
       }
     } on AuthException catch (e) {
-      if (mounted) _showMessage(e.message);
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
     } catch (_) {
-      if (mounted) {
-        _showMessage('Could not create account. Please try again.');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not create account. Please try again.'),
+          ),
+        );
       }
     }
   }
@@ -69,6 +48,7 @@ class _SignUpState extends State<SignUp> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final auth = context.watch<AuthProvider>();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Create Account'), centerTitle: true),
@@ -79,7 +59,7 @@ class _SignUpState extends State<SignUp> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
               child: Form(
-                key: _formKey,
+                key: auth.signUpFormKey,
                 autovalidateMode: AutovalidateMode.onUserInteraction,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -109,7 +89,7 @@ class _SignUpState extends State<SignUp> {
                             ),
                             const SizedBox(height: 14),
                             AuthTextField(
-                              controller: _nameController,
+                              controller: auth.signUpNameController,
                               label: 'Full Name',
                               hint: 'Enter your full name',
                               prefixIcon: Icons.person_outline,
@@ -124,7 +104,7 @@ class _SignUpState extends State<SignUp> {
                             ),
                             const SizedBox(height: 14),
                             AuthTextField(
-                              controller: _emailController,
+                              controller: auth.signUpEmailController,
                               label: 'Email Address',
                               hint: 'you@example.com',
                               prefixIcon: Icons.email_outlined,
@@ -140,7 +120,7 @@ class _SignUpState extends State<SignUp> {
                             ),
                             const SizedBox(height: 14),
                             AuthTextField(
-                              controller: _phoneController,
+                              controller: auth.signUpPhoneController,
                               label: 'Phone Number (Optional)',
                               hint: '+1 234 567 8900',
                               prefixIcon: Icons.phone_outlined,
@@ -157,92 +137,74 @@ class _SignUpState extends State<SignUp> {
                               },
                             ),
                             const SizedBox(height: 14),
-                            ValueListenableBuilder<bool>(
-                              valueListenable: obscureSignUpPasswordNotifier,
-                              builder: (context, obscure, _) {
-                                return AuthTextField(
-                                  controller: _passwordController,
-                                  label: 'Password',
-                                  hint: 'At least 6 characters',
-                                  prefixIcon: Icons.lock_outline,
-                                  obscureText: obscure,
-                                  textInputAction: TextInputAction.next,
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      obscure
-                                          ? Icons.visibility_outlined
-                                          : Icons.visibility_off_outlined,
-                                    ),
-                                    onPressed: () {
-                                      obscureSignUpPasswordNotifier.value =
-                                          !obscure;
-                                    },
-                                  ),
-                                  validator: (value) {
-                                    if (value == null || value.length < 6) {
-                                      return 'Password must be at least 6 characters';
-                                    }
-                                    return null;
-                                  },
-                                );
+                            AuthTextField(
+                              controller: auth.signUpPasswordController,
+                              label: 'Password',
+                              hint: 'At least 6 characters',
+                              prefixIcon: Icons.lock_outline,
+                              obscureText: auth.obscureSignUpPassword,
+                              textInputAction: TextInputAction.next,
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  auth.obscureSignUpPassword
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                ),
+                                onPressed: auth.toggleSignUpPasswordVisibility,
+                              ),
+                              validator: (value) {
+                                if (value == null || value.length < 6) {
+                                  return 'Password must be at least 6 characters';
+                                }
+                                return null;
                               },
                             ),
                             const SizedBox(height: 14),
-                            ValueListenableBuilder<bool>(
-                              valueListenable: obscureConfirmPasswordNotifier,
-                              builder: (context, obscure, _) {
-                                return AuthTextField(
-                                  controller: _confirmPasswordController,
-                                  label: 'Confirm Password',
-                                  hint: 'Re-enter your password',
-                                  prefixIcon: Icons.verified_user_outlined,
-                                  obscureText: obscure,
-                                  textInputAction: TextInputAction.done,
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      obscure
-                                          ? Icons.visibility_outlined
-                                          : Icons.visibility_off_outlined,
-                                    ),
-                                    onPressed: () {
-                                      obscureConfirmPasswordNotifier.value =
-                                          !obscure;
-                                    },
-                                  ),
-                                  validator: (value) {
-                                    if (value != _passwordController.text) {
-                                      return 'Passwords do not match';
-                                    }
-                                    return null;
-                                  },
-                                );
+                            AuthTextField(
+                              controller: auth.signUpConfirmPasswordController,
+                              label: 'Confirm Password',
+                              hint: 'Re-enter your password',
+                              prefixIcon: Icons.verified_user_outlined,
+                              obscureText: auth.obscureConfirmPassword,
+                              textInputAction: TextInputAction.done,
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  auth.obscureConfirmPassword
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                ),
+                                onPressed: auth.toggleConfirmPasswordVisibility,
+                              ),
+                              validator: (value) {
+                                if (value !=
+                                    auth.signUpPasswordController.text) {
+                                  return 'Passwords do not match';
+                                }
+                                return null;
                               },
                             ),
                             const SizedBox(height: 22),
-                            ValueListenableBuilder<bool>(
-                              valueListenable: authLoadingNotifier,
-                              builder: (context, isLoading, _) {
-                                return SizedBox(
-                                  height: 48,
-                                  child: FilledButton.icon(
-                                    onPressed: isLoading ? null : _submitSignUp,
-                                    icon: isLoading
-                                        ? const SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                        : const Icon(Icons.person_add_alt_1),
-                                    label: Text(
-                                      isLoading
-                                          ? 'Creating Account...'
-                                          : 'Sign Up',
-                                    ),
-                                  ),
-                                );
-                              },
+                            SizedBox(
+                              height: 48,
+                              child: FilledButton.icon(
+                                onPressed: auth.isLoading
+                                    ? null
+                                    : () => _submitSignUp(context),
+                                icon: auth.isLoading
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.person_add_alt_1),
+                                label: Text(
+                                  auth.isLoading
+                                      ? 'Creating Account...'
+                                      : 'Sign Up',
+                                ),
+                              ),
                             ),
                           ],
                         ),

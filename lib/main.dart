@@ -1,6 +1,10 @@
+import 'package:event_managment_app/providers/auth_provider.dart';
+import 'package:event_managment_app/providers/events_provider.dart';
+import 'package:event_managment_app/providers/navigation_provider.dart';
+import 'package:event_managment_app/providers/profile_provider.dart';
 import 'package:event_managment_app/views/auth_gate.dart';
 import 'package:flutter/material.dart';
-import 'package:event_managment_app/notifiers/auth_notifier.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() async {
@@ -10,23 +14,41 @@ void main() async {
     // ignore: deprecated_member_use
     anonKey: 'sb_publishable_0Vot3xYkXkgk-oHEZWQnbg_kI9oMmZr',
   );
-  initAuth(); // check saved login before the UI shows
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<NavigationProvider>(
+          create: (_) => NavigationProvider(),
+        ),
+        ChangeNotifierProvider<ProfileProvider>(
+          create: (_) => ProfileProvider(),
+        ),
+        ChangeNotifierProxyProvider<ProfileProvider, AuthProvider>(
+          create: (context) => AuthProvider(
+            profileProvider: context.read<ProfileProvider>(),
+          ),
+          update: (_, profileProvider, previous) =>
+              previous ?? AuthProvider(profileProvider: profileProvider),
+        ),
+        ChangeNotifierProvider<EventsProvider>(
+          create: (_) => EventsProvider(),
+        ),
+      ],
+      child: MaterialApp(
+        title: 'Event Management',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+        ),
+        home: const AuthGate(),
       ),
-      home: const AuthGate(),
     );
   }
 }

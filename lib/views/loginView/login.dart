@@ -1,45 +1,33 @@
-import 'package:event_managment_app/notifiers/auth_notifier.dart';
+import 'package:event_managment_app/providers/auth_provider.dart';
 import 'package:event_managment_app/views/loginView/signup.dart';
 import 'package:event_managment_app/widget/auth_widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class Login extends StatefulWidget {
+class Login extends StatelessWidget {
   const Login({super.key});
 
-  @override
-  State<Login> createState() => _LoginState();
-}
-
-class _LoginState extends State<Login> {
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  Future<void> _submitLogin() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+  Future<void> _submitLogin(BuildContext context) async {
+    final auth = context.read<AuthProvider>();
+    if (!(auth.loginFormKey.currentState?.validate() ?? false)) return;
     FocusScope.of(context).unfocus();
 
     try {
-      await login(_emailController.text.trim(), _passwordController.text);
+      await auth.signIn();
     } on AuthException catch (e) {
-      if (mounted) _showMessage(e.message);
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
     } catch (_) {
-      if (mounted) {
-        _showMessage('An unexpected error occurred. Please try again.');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('An unexpected error occurred. Please try again.'),
+          ),
+        );
       }
     }
   }
@@ -47,6 +35,7 @@ class _LoginState extends State<Login> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final auth = context.watch<AuthProvider>();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Event Management'), centerTitle: true),
@@ -57,7 +46,7 @@ class _LoginState extends State<Login> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
               child: Form(
-                key: _formKey,
+                key: auth.loginFormKey,
                 autovalidateMode: AutovalidateMode.onUserInteraction,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -87,7 +76,7 @@ class _LoginState extends State<Login> {
                             ),
                             const SizedBox(height: 14),
                             AuthTextField(
-                              controller: _emailController,
+                              controller: auth.loginEmailController,
                               label: 'Email Address',
                               hint: 'you@example.com',
                               prefixIcon: Icons.email_outlined,
@@ -102,59 +91,48 @@ class _LoginState extends State<Login> {
                               },
                             ),
                             const SizedBox(height: 14),
-                            ValueListenableBuilder<bool>(
-                              valueListenable: obscureLoginPasswordNotifier,
-                              builder: (context, obscure, _) {
-                                return AuthTextField(
-                                  controller: _passwordController,
-                                  label: 'Password',
-                                  hint: 'Enter your password',
-                                  prefixIcon: Icons.lock_outline,
-                                  obscureText: obscure,
-                                  textInputAction: TextInputAction.done,
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      obscure
-                                          ? Icons.visibility_outlined
-                                          : Icons.visibility_off_outlined,
-                                    ),
-                                    onPressed: () {
-                                      obscureLoginPasswordNotifier.value =
-                                          !obscure;
-                                    },
-                                  ),
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Please enter your password';
-                                    }
-                                    return null;
-                                  },
-                                );
+                            AuthTextField(
+                              controller: auth.loginPasswordController,
+                              label: 'Password',
+                              hint: 'Enter your password',
+                              prefixIcon: Icons.lock_outline,
+                              obscureText: auth.obscureLoginPassword,
+                              textInputAction: TextInputAction.done,
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  auth.obscureLoginPassword
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                ),
+                                onPressed: auth.toggleLoginPasswordVisibility,
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter your password';
+                                }
+                                return null;
                               },
                             ),
                             const SizedBox(height: 22),
-                            ValueListenableBuilder<bool>(
-                              valueListenable: authLoadingNotifier,
-                              builder: (context, isLoading, _) {
-                                return SizedBox(
-                                  height: 48,
-                                  child: FilledButton.icon(
-                                    onPressed: isLoading ? null : _submitLogin,
-                                    icon: isLoading
-                                        ? const SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                        : const Icon(Icons.login_rounded),
-                                    label: Text(
-                                      isLoading ? 'Signing In...' : 'Sign In',
-                                    ),
-                                  ),
-                                );
-                              },
+                            SizedBox(
+                              height: 48,
+                              child: FilledButton.icon(
+                                onPressed: auth.isLoading
+                                    ? null
+                                    : () => _submitLogin(context),
+                                icon: auth.isLoading
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.login_rounded),
+                                label: Text(
+                                  auth.isLoading ? 'Signing In...' : 'Sign In',
+                                ),
+                              ),
                             ),
                           ],
                         ),

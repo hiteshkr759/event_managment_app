@@ -1,4 +1,4 @@
-import 'package:event_managment_app/notifiers/home_events_notifier.dart';
+import 'package:event_managment_app/models/event_model.dart';
 import 'package:event_managment_app/widget/event_banner_image.dart';
 import 'package:flutter/material.dart';
 
@@ -25,7 +25,6 @@ class FeaturedEventCard extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             EventBannerImage(event: event),
-            // Dark gradient overlay so white text stays readable over any image
             DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -43,7 +42,6 @@ class FeaturedEventCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Top row: Category pill + Price pill
                   Row(
                     children: [
                       Container(
@@ -86,7 +84,6 @@ class FeaturedEventCard extends StatelessWidget {
                     ],
                   ),
                   const Spacer(),
-                  // Bottom info: Title, Date/Time, Location & Attendees
                   Text(
                     event.title,
                     maxLines: 2,
@@ -143,7 +140,7 @@ class FeaturedEventCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        '${event.attendees}+',
+                        '${event.attendees} going',
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 12,
@@ -160,4 +157,3 @@ class FeaturedEventCard extends StatelessWidget {
     );
   }
 }
-
