@@ -1,23 +1,20 @@
 import 'package:flutter/foundation.dart';
-// import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:event_managment_app/notifiers/profile_notifer.dart';
 
-// const _key = 'isLoggedIn';
-
 final ValueNotifier<bool> authNotifier = ValueNotifier<bool>(false);
+final ValueNotifier<bool> authLoadingNotifier = ValueNotifier<bool>(false);
+final ValueNotifier<bool> obscureLoginPasswordNotifier = ValueNotifier<bool>(
+  true,
+);
+final ValueNotifier<bool> obscureSignUpPasswordNotifier = ValueNotifier<bool>(
+  true,
+);
+final ValueNotifier<bool> obscureConfirmPasswordNotifier = ValueNotifier<bool>(
+  true,
+);
 
 SupabaseClient get supabase => Supabase.instance.client;
-
-// void initAuth() {
-//   // Restored session (Supabase saves it on the device and refreshes it)
-//   authNotifier.value = supabase.auth.currentSession != null;
-
-//   // Keeps authNotifier in sync on login, logout, and token expiry
-//   supabase.auth.onAuthStateChange.listen((data) {
-//     authNotifier.value = data.session != null;
-//   });
-// }
 
 void initAuth() {
   authNotifier.value = supabase.auth.currentSession != null;
@@ -34,26 +31,38 @@ void initAuth() {
   });
 }
 
-// Call once in main() before runApp
-// Future<void> loadLoginState() async {
-//   final prefs = await SharedPreferences.getInstance();
-//   authNotifier.value = prefs.getBool(_key) ?? false;
-// }
-
 Future<void> login(String email, String password) async {
-  // final prefs = await SharedPreferences.getInstance();
-  // await prefs.setBool(_key, true);
-  // authNotifier.value = true;
-  await supabase.auth.signInWithPassword(email: email, password: password);
+  authLoadingNotifier.value = true;
+  try {
+    await supabase.auth.signInWithPassword(email: email, password: password);
+  } finally {
+    authLoadingNotifier.value = false;
+  }
 }
 
-Future<void> signUp(String email, String password) async {
-  await supabase.auth.signUp(email: email, password: password);
+Future<AuthResponse> signUp(
+  String email,
+  String password, {
+  String? fullName,
+  String? phone,
+}) async {
+  authLoadingNotifier.value = true;
+  try {
+    final data = <String, dynamic>{
+      if (fullName != null && fullName.trim().isNotEmpty)
+        'full_name': fullName.trim(),
+      if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
+    };
+    return await supabase.auth.signUp(
+      email: email,
+      password: password,
+      data: data.isEmpty ? null : data,
+    );
+  } finally {
+    authLoadingNotifier.value = false;
+  }
 }
 
 Future<void> logout() async {
-  // final prefs = await SharedPreferences.getInstance();
-  // await prefs.setBool(_key, false);
-  // authNotifier.value = false;
   await supabase.auth.signOut();
 }
