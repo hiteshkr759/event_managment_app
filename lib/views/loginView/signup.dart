@@ -66,7 +66,7 @@ class SignUp extends StatelessWidget {
                     children: [
                       const AuthHeaderBanner(
                         badgeText: 'NEW MEMBER',
-                        title: 'Join Event Management',
+                        title: 'Join Eventora',
                         subtitle:
                             'Create your account to discover featured events and activities near you.',
                         icon: Icons.celebration_rounded,

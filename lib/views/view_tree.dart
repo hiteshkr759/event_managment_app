@@ -23,7 +23,7 @@ class ViewTree extends StatelessWidget {
     );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Event Management'), centerTitle: true),
+      appBar: AppBar(title: const Text('Eventora'), centerTitle: true),
       drawer: const EventDrawer(),
       bottomNavigationBar: const Navigation(),
       body: IndexedStack(index: currentIndex, children: _pages),

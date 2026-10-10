@@ -14,7 +14,7 @@ import 'package:provider/provider.dart';
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
-  void _openEventsDirectory(BuildContext context, String modeFilter) {
+  void _onSeeAllEvents(BuildContext context, String modeFilter) {
     context.read<EventsProvider>().setAllModeFilter(modeFilter);
     context.read<NavigationProvider>().setTab(1);
   }
@@ -70,7 +70,7 @@ class HomePage extends StatelessWidget {
                   child: SectionHeader(
                     title: 'Featured Events',
                     subtitle: 'Handpicked highlights for you',
-                    onSeeAll: () => _openEventsDirectory(context, 'All'),
+                    onSeeAll: () => _onSeeAllEvents(context, 'All'),
                   ),
                 ),
                 SliverToBoxAdapter(
@@ -87,7 +87,7 @@ class HomePage extends StatelessWidget {
                   child: SectionHeader(
                     title: 'Events Near Me',
                     subtitle: 'Happening around your location',
-                    onSeeAll: () => _openEventsDirectory(context, 'All'),
+                    onSeeAll: () => _onSeeAllEvents(context, 'All'),
                   ),
                 ),
                 SliverToBoxAdapter(
@@ -103,7 +103,7 @@ class HomePage extends StatelessWidget {
                   child: SectionHeader(
                     title: 'Upcoming Events',
                     subtitle: 'More events to explore',
-                    onSeeAll: () => _openEventsDirectory(context, 'All'),
+                    onSeeAll: () => _onSeeAllEvents(context, 'All'),
                   ),
                 ),
                 if (upcomingEvents.isEmpty)

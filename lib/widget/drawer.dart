@@ -10,11 +10,14 @@ class EventDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final profile = context.watch<ProfileProvider>().profile;
-    final nav = context.read<NavigationProvider>();
+    final currentIndex = context.select<NavigationProvider, int>(
+      (nav) => nav.currentIndex,
+    );
 
     void selectTab(int index) {
-      nav.setTab(index);
+      context.read<NavigationProvider>().setTab(index);
       Navigator.of(context).pop();
     }
 
@@ -37,7 +40,7 @@ class EventDrawer extends StatelessWidget {
                 RoleBadge(isAdmin: profile?.isAdmin ?? false),
                 const SizedBox(height: 10),
                 Text(
-                  profile?.displayName ?? 'Event Management',
+                  profile?.displayName ?? 'Eventora',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -52,17 +55,32 @@ class EventDrawer extends StatelessWidget {
             ),
           ),
           ListTile(
-            leading: const Icon(Icons.home_outlined),
+            selected: currentIndex == 0,
+            selectedColor: scheme.primary,
+            selectedTileColor: scheme.primaryContainer.withValues(alpha: 0.45),
+            leading: Icon(
+              currentIndex == 0 ? Icons.home_rounded : Icons.home_outlined,
+            ),
             title: const Text('Home'),
             onTap: () => selectTab(0),
           ),
           ListTile(
-            leading: const Icon(Icons.event_outlined),
+            selected: currentIndex == 1,
+            selectedColor: scheme.primary,
+            selectedTileColor: scheme.primaryContainer.withValues(alpha: 0.45),
+            leading: Icon(
+              currentIndex == 1 ? Icons.event_rounded : Icons.event_outlined,
+            ),
             title: const Text('All Events'),
             onTap: () => selectTab(1),
           ),
           ListTile(
-            leading: const Icon(Icons.person_outline),
+            selected: currentIndex == 2,
+            selectedColor: scheme.primary,
+            selectedTileColor: scheme.primaryContainer.withValues(alpha: 0.45),
+            leading: Icon(
+              currentIndex == 2 ? Icons.person_rounded : Icons.person_outline,
+            ),
             title: const Text('Profile & Role'),
             onTap: () => selectTab(2),
           ),
