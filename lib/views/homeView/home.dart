@@ -1,4 +1,3 @@
-import 'package:event_managment_app/notifiers/event_notifer.dart';
 import 'package:event_managment_app/notifiers/home_events_notifier.dart';
 import 'package:event_managment_app/notifiers/profile_notifer.dart';
 import 'package:event_managment_app/widget/event_carousel.dart';
@@ -20,6 +19,7 @@ class HomePage extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth > 700;
+
         return Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1000),
@@ -27,6 +27,9 @@ class HomePage extends StatelessWidget {
               listenable: Listenable.merge([
                 selectedCategoryNotifier,
                 searchQueryNotifier,
+                featuredEventsNotifier,
+                nearbyEventsNotifier,
+                upcomingEventsNotifier,
               ]),
               builder: (context, _) {
                 final selectedCategory = selectedCategoryNotifier.value;
@@ -129,7 +132,7 @@ class HomePage extends StatelessWidget {
                       child: SectionHeader(
                         title: 'Featured Events',
                         subtitle: 'Handpicked highlights for you',
-                        onSeeAll: () => eventNotifier.value = 1,
+                        onSeeAll: () => openAllEventsPage(modeFilter: 'All'),
                       ),
                     ),
                     SliverToBoxAdapter(
@@ -146,7 +149,7 @@ class HomePage extends StatelessWidget {
                       child: SectionHeader(
                         title: 'Events Near Me',
                         subtitle: 'Happening around your location',
-                        onSeeAll: () => eventNotifier.value = 1,
+                        onSeeAll: () => openAllEventsPage(modeFilter: 'All'),
                       ),
                     ),
                     SliverToBoxAdapter(
@@ -162,7 +165,7 @@ class HomePage extends StatelessWidget {
                       child: SectionHeader(
                         title: 'Upcoming Events',
                         subtitle: 'More events to explore',
-                        onSeeAll: () => eventNotifier.value = 1,
+                        onSeeAll: () => openAllEventsPage(modeFilter: 'All'),
                       ),
                     ),
                     if (upcomingEvents.isEmpty)
@@ -211,6 +214,8 @@ class _GreetingHeader extends StatelessWidget {
         final displayName = (profile?.fullName?.trim().isNotEmpty ?? false)
             ? profile!.fullName!.trim()
             : 'Explorer';
+        final isAdmin = profile?.isAdmin ?? false;
+
         return Row(
           children: [
             Expanded(
@@ -219,14 +224,16 @@ class _GreetingHeader extends StatelessWidget {
                 children: [
                   Text(
                     'Hello, $displayName 👋',
-                    style: Theme.of(context).textTheme.titleMedium
-                        ?.copyWith(color: scheme.onSurfaceVariant),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     'Discover Amazing Events',
-                    style: Theme.of(context).textTheme.headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -234,20 +241,30 @@ class _GreetingHeader extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: scheme.primaryContainer,
+                color: isAdmin
+                    ? Colors.teal.shade700
+                    : scheme.primaryContainer,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.location_on, size: 16, color: scheme.primary),
+                  Icon(
+                    isAdmin
+                        ? Icons.admin_panel_settings
+                        : Icons.location_on,
+                    size: 16,
+                    color: isAdmin ? Colors.white : scheme.primary,
+                  ),
                   const SizedBox(width: 4),
                   Text(
-                    'Nearby',
+                    isAdmin ? 'Admin' : 'Nearby',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: scheme.onPrimaryContainer,
+                      color: isAdmin
+                          ? Colors.white
+                          : scheme.onPrimaryContainer,
                     ),
                   ),
                 ],

@@ -1,18 +1,18 @@
+import 'package:event_managment_app/notifiers/event_notifer.dart';
+import 'package:event_managment_app/views/eventsView/events_page.dart';
 import 'package:event_managment_app/views/homeView/home.dart';
 import 'package:event_managment_app/views/profileView/profile.dart';
 import 'package:event_managment_app/widget/drawer.dart';
 import 'package:event_managment_app/widget/nav.dart';
 import 'package:flutter/material.dart';
-import 'package:event_managment_app/notifiers/event_notifer.dart';
 
 class ViewTree extends StatelessWidget {
   const ViewTree({super.key});
 
   static const List<Widget> _pages = <Widget>[
     HomePage(),
-    Center(child: Text('Events Page')),
+    EventsPage(),
     ProfilePage(),
-    //Center(child: Text('Profile Page')),
   ];
 
   @override

@@ -16,6 +16,7 @@ class UpcomingEventTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isOnline = event.isOnline;
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -30,8 +31,8 @@ class UpcomingEventTile extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: SizedBox(
-                  width: 84,
-                  height: 84,
+                  width: 88,
+                  height: 88,
                   child: EventBannerImage(event: event),
                 ),
               ),
@@ -58,6 +59,44 @@ class UpcomingEventTile extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                               color: scheme.onSecondaryContainer,
                             ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isOnline
+                                ? Colors.indigo.withValues(alpha: 0.12)
+                                : Colors.teal.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                isOnline
+                                    ? Icons.videocam_outlined
+                                    : Icons.location_on_outlined,
+                                size: 12,
+                                color: isOnline
+                                    ? Colors.indigo
+                                    : Colors.teal.shade700,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                isOnline ? 'ONLINE' : 'OFFLINE',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: isOnline
+                                      ? Colors.indigo
+                                      : Colors.teal.shade700,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const Spacer(),
@@ -88,24 +127,41 @@ class UpcomingEventTile extends StatelessWidget {
                         color: scheme.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     Row(
                       children: [
                         Icon(
-                          Icons.location_on_outlined,
+                          isOnline
+                              ? Icons.language_outlined
+                              : Icons.location_on_outlined,
                           size: 13,
                           color: scheme.onSurfaceVariant,
                         ),
                         const SizedBox(width: 3),
                         Expanded(
                           child: Text(
-                            '${event.location} (${event.distance})',
+                            event.location,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 12,
                               color: scheme.onSurfaceVariant,
                             ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.people_outline,
+                          size: 14,
+                          color: scheme.primary,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          '${event.attendees} attending',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: scheme.primary,
                           ),
                         ),
                       ],
@@ -120,4 +176,3 @@ class UpcomingEventTile extends StatelessWidget {
     );
   }
 }
-
