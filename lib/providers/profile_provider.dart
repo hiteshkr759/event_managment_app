@@ -150,6 +150,27 @@ class ProfileProvider extends ChangeNotifier {
     await _fetchRemoteProfileRow();
   }
 
+  void setOfflineProfile({
+    required String email,
+    String? fullName,
+    String? phone,
+    String role = 'user',
+  }) {
+    final derivedName = (fullName != null && fullName.trim().isNotEmpty)
+        ? fullName.trim()
+        : email.split('@').first;
+    _profile = Profile(
+      id: 'offline-${email.hashCode}',
+      email: email,
+      fullName: derivedName,
+      phone: phone,
+      role: role,
+      createdAt: DateTime.now(),
+    );
+    _syncControllers();
+    _safeNotify();
+  }
+
   void clearProfile() {
     _profile = null;
     nameController.clear();
@@ -166,34 +187,44 @@ class ProfileProvider extends ChangeNotifier {
     final phone = phoneController.text.trim();
     final currentRole = _profile?.role ?? 'user';
 
-    try {
-      final res = await _client.auth.updateUser(
-        UserAttributes(
-          data: {
-            'full_name': fullName,
-            'phone': phone,
-            'bio': _profile?.bio,
-            'role': currentRole,
-          },
-        ),
+    // Update local profile immediately so UI works even when offline
+    if (_profile != null) {
+      _profile = _profile!.copyWith(
+        fullName: fullName,
+        phone: phone,
+        role: currentRole,
       );
-      if (res.user != null) {
-        _profile = Profile.fromUser(res.user!, overrideRole: currentRole);
-        _syncControllers();
-      }
-      try {
-        final user = _client.auth.currentUser;
-        if (user != null) {
-          await _client.from('profiles').upsert({
-            'id': user.id,
-            'email': user.email ?? '',
-            'full_name': fullName,
-            'phone': phone,
-            'bio': _profile?.bio,
-            'role': currentRole,
-          });
+      _syncControllers();
+    }
+
+    try {
+      final user = _client.auth.currentUser;
+      if (user != null) {
+        final res = await _client.auth.updateUser(
+          UserAttributes(
+            data: {
+              'full_name': fullName,
+              'phone': phone,
+              'bio': _profile?.bio,
+              'role': currentRole,
+            },
+          ),
+        );
+        if (res.user != null) {
+          _profile = Profile.fromUser(res.user!, overrideRole: currentRole);
+          _syncControllers();
         }
-      } catch (_) {}
+        await _client.from('profiles').upsert({
+          'id': user.id,
+          'email': user.email ?? '',
+          'full_name': fullName,
+          'phone': phone,
+          'bio': _profile?.bio,
+          'role': currentRole,
+        });
+      }
+    } catch (_) {
+      // Ignore network/DNS errors when offline; local profile state is already updated
     } finally {
       _isLoading = false;
       _safeNotify();
