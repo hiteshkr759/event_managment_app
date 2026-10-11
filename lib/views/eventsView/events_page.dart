@@ -10,9 +10,22 @@ import 'package:event_managment_app/widget/upcoming_event_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+/// Full searchable and filterable directory of all events (Tab 2).
+///
+/// **Purpose:**
+/// Lets users browse every event in Eventora, filter by delivery mode
+/// (`Offline`, `Online`, `Featured`, `Nearby`) or category, and—if the user is
+/// in **Admin** mode—launch [CreateEventPage] via a Floating Action Button.
+///
+/// **How it works:**
+/// Watches both [EventsProvider] (for the filtered event list) and
+/// [ProfileProvider] (to check `isAdmin` and conditionally show the "Create
+/// Event" button).
 class EventsPage extends StatelessWidget {
+  /// Creates the [EventsPage] widget.
   const EventsPage({super.key});
 
+  // Maps each mode filter name to a matching Material icon for the filter chips.
   IconData _iconForModeFilter(String filter) {
     return switch (filter) {
       'Offline' => Icons.location_on_outlined,

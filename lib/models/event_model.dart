@@ -1,12 +1,27 @@
 import 'package:flutter/material.dart';
 
+/// Represents a single user who has registered to attend an event.
+///
+/// **Purpose:**
+/// Holds display details (name, email, avatar, and registration status) for
+/// each person shown in the "Registered Attendees" bottom sheet.
 class EventAttendee {
+  /// The unique user ID (UUID from Supabase `auth.users` / `public.profiles`).
   final String id;
+
+  /// The display name of the attendee.
   final String name;
+
+  /// The email address of the attendee.
   final String email;
+
+  /// Optional URL pointing to the attendee's profile picture.
   final String? avatarUrl;
+
+  /// Human-readable label showing when the user registered (e.g., `'Just now'`).
   final String registeredAtLabel;
 
+  /// Creates an immutable [EventAttendee] record.
   const EventAttendee({
     required this.id,
     required this.name,
@@ -16,27 +31,77 @@ class EventAttendee {
   });
 }
 
+/// Immutable data model representing an event in Eventora.
+///
+/// **Purpose:**
+/// Stores all details needed to render an event card, carousel banner, or
+/// details sheet (both **Offline** in-person events and **Online** virtual
+/// events), and provides helper methods to convert between Dart objects and
+/// Supabase PostgreSQL rows.
+///
+/// **How it works:**
+/// Because all fields are `final`, an [EventItem] cannot be mutated in place.
+/// When attendance changes in the UI, [copyWith] creates an updated copy while
+/// keeping all other fields untouched.
 class EventItem {
+  /// Unique identifier (`id` primary key from `public.events`).
   final String id;
+
+  /// Display title of the event.
   final String title;
+
+  /// Event category (e.g., `'Tech'`, `'Music'`, `'Art'`, `'Sports'`).
   final String category;
-  final String eventMode; // 'offline' or 'online'
+
+  /// Delivery mode of the event (`'offline'` for in-person or `'online'`).
+  final String eventMode;
+
+  /// Formatted date string shown in the UI (e.g., `'Apr 18, 2026'`).
   final String date;
+
+  /// Formatted time string shown in the UI (e.g., `'10:00 AM'`).
   final String time;
+
+  /// Physical venue name (for offline events) or platform label (for online).
   final String location;
+
+  /// Distance label (e.g., `'2.4 km away'`) or `'Online Event'`.
   final String distance;
+
+  /// Streaming/meeting platform name when [isOnline] is `true`.
   final String? onlinePlatform;
+
+  /// Join URL when [isOnline] is `true`.
   final String? meetingUrl;
+
+  /// Formatted price badge (e.g., `'Free'` or `'\$49'`).
   final String price;
+
+  /// Full text description shown in the event details sheet.
   final String description;
+
+  /// Banner image URL displayed on cards and headers.
   final String imageUrl;
+
+  /// Total number of people attending this event.
   final int attendees;
+
+  /// List of registered users for this event.
   final List<EventAttendee> attendeeList;
+
+  /// Whether this event is highlighted in the "Featured Events" carousel.
   final bool isFeatured;
+
+  /// Whether this event belongs to the "Events Near Me" section.
   final bool isNearby;
+
+  /// Fallback category icon used if the network image fails to load.
   final IconData icon;
+
+  /// Fallback gradient colors matched to [category].
   final List<Color> gradientColors;
 
+  /// Creates an immutable [EventItem].
   const EventItem({
     required this.id,
     required this.title,
@@ -59,17 +124,25 @@ class EventItem {
     required this.gradientColors,
   });
 
+  /// Whether this event takes place online rather than at a physical venue.
   bool get isOnline => eventMode.toLowerCase() == 'online';
 
+  /// Checks whether the user with [userId] is already in [attendeeList].
+  ///
+  /// **Purpose:**
+  /// Determines whether the event details button should show "Book / Attend"
+  /// or "Attending ✓ (Tap to Cancel)".
   bool isUserAttending(String? userId) {
     if (userId == null || userId.isEmpty) return false;
     return attendeeList.any((a) => a.id == userId);
   }
 
-  EventItem copyWith({
-    int? attendees,
-    List<EventAttendee>? attendeeList,
-  }) {
+  /// Creates a new [EventItem] with updated [attendees] or [attendeeList].
+  ///
+  /// **Purpose:**
+  /// Supports immutable state updates in `EventsProvider` when a user joins or
+  /// leaves an event.
+  EventItem copyWith({int? attendees, List<EventAttendee>? attendeeList}) {
     return EventItem(
       id: id,
       title: title,
@@ -93,6 +166,12 @@ class EventItem {
     );
   }
 
+  /// Returns the default `(icon, gradientColors, bannerUrl)` tuple for [category].
+  ///
+  /// **Purpose:**
+  /// Assigns consistent visual styling (icon, gradient, and fallback Unsplash
+  /// photo) based on the event's category using Dart 3's `switch` expression
+  /// and Record return type `(IconData, List<Color>, String)`.
   static (IconData, List<Color>, String) styleForCategory(String category) {
     return switch (category) {
       'Tech' => (
@@ -127,6 +206,226 @@ class EventItem {
       ),
     };
   }
+
+  /// Converts this [EventItem] into a JSON map matching the Supabase `public.events` table.
+  ///
+  /// **Purpose:**
+  /// Serializes a Dart [EventItem] into database column names so it can be
+  /// inserted into Supabase when an Admin creates a new event.
+  ///
+  /// **How it works:**
+  /// Maps Dart properties to PostgreSQL snake_case columns (`organizer_id`,
+  /// `event_mode`, `starts_at`, `venue_name`, `meeting_url`, etc.) and ensures
+  /// the database `valid_event_mode_fields` check constraint is satisfied.
+  Map<String, dynamic> toSupabaseMap(String organizerId) {
+    final online = isOnline;
+    final numericPrice =
+        double.tryParse(price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
+    final free = price.trim().toLowerCase() == 'free' || numericPrice == 0.0;
+
+    return <String, dynamic>{
+      'organizer_id': organizerId,
+      'title': title,
+      'description': description,
+      'category': category,
+      'event_mode': online ? 'online' : 'offline',
+      'starts_at': _parseStartsAtIso(date, time),
+      'venue_name': online
+          ? null
+          : (location.isNotEmpty ? location : 'TBA Venue'),
+      'address': online ? null : distance,
+      'city': isNearby ? 'nearby' : 'standard',
+      'online_platform': online ? (onlinePlatform ?? 'Online Platform') : null,
+      'meeting_url': online
+          ? (meetingUrl != null && meetingUrl!.isNotEmpty
+                ? meetingUrl
+                : 'https://meet.google.com')
+          : null,
+      'is_free': free,
+      'price': free ? 0 : numericPrice,
+      'max_capacity': attendees,
+      'is_featured': isFeatured,
+      'banner_url': imageUrl,
+    };
+  }
+
+  /// Builds an [EventItem] from a Supabase `public.events` row and joined `event_registrations`.
+  ///
+  /// **Purpose:**
+  /// Deserializes raw JSON maps returned by `Supabase.from('events').select(...)`
+  /// into strongly-typed Dart [EventItem] objects for the UI.
+  ///
+  /// **How it works:**
+  /// 1. Extracts category styling (`icon`, `gradientColors`, fallback banner).
+  /// 2. Parses `starts_at` ISO timestamp into readable `date` and `time` strings.
+  /// 3. Loops over nested `event_registrations` rows (joined with `profiles`)
+  ///    to build the live [attendeeList] and calculate total [attendees].
+  factory EventItem.fromSupabaseMap(Map<String, dynamic> row) {
+    final category = (row['category'] as String?) ?? 'Tech';
+    final (icon, colors, defaultBanner) = styleForCategory(category);
+    final mode = ((row['event_mode'] as String?) ?? 'offline').toLowerCase();
+    final online = mode == 'online';
+
+    final startsAtRaw = row['starts_at'] as String?;
+    final startsAt = startsAtRaw != null
+        ? DateTime.tryParse(startsAtRaw)?.toLocal()
+        : null;
+    final (formattedDate, formattedTime) = _formatDateTime(startsAt);
+
+    final isFree = (row['is_free'] as bool?) ?? true;
+    final rawPrice = row['price'];
+    final numPrice = rawPrice is num
+        ? rawPrice.toDouble()
+        : (double.tryParse(rawPrice?.toString() ?? '0') ?? 0.0);
+    final priceLabel = (isFree || numPrice <= 0)
+        ? 'Free'
+        : '\$${numPrice % 1 == 0 ? numPrice.toInt() : numPrice.toStringAsFixed(2)}';
+
+    final venueName = (row['venue_name'] as String?)?.trim() ?? '';
+    final address = (row['address'] as String?)?.trim() ?? '';
+    final platform = (row['online_platform'] as String?)?.trim();
+    final locationLabel = online
+        ? '${(platform != null && platform.isNotEmpty) ? platform : 'Virtual'} (Online)'
+        : (venueName.isNotEmpty ? venueName : 'TBA');
+    final distanceLabel = online
+        ? 'Online Event'
+        : (address.isNotEmpty ? address : '1.5 km away');
+
+    // Parse joined event_registrations if present
+    final regList = <EventAttendee>[];
+    final rawRegs = row['event_registrations'];
+    if (rawRegs is List) {
+      for (final item in rawRegs) {
+        if (item is Map<String, dynamic>) {
+          final profileMap = item['profiles'] as Map<String, dynamic>?;
+          final uid =
+              (item['user_id'] as String?) ??
+              (profileMap?['id'] as String?) ??
+              'user';
+          final fullName = (profileMap?['full_name'] as String?)?.trim();
+          final email = (profileMap?['email'] as String?)?.trim() ?? '';
+          regList.add(
+            EventAttendee(
+              id: uid,
+              name: (fullName != null && fullName.isNotEmpty)
+                  ? fullName
+                  : (email.isNotEmpty ? email.split('@').first : 'Attendee'),
+              email: email,
+              avatarUrl: profileMap?['avatar_url'] as String?,
+              registeredAtLabel: 'Registered',
+            ),
+          );
+        }
+      }
+    }
+
+    final baseCount = (row['max_capacity'] as int?) ?? 0;
+    final totalAttendees = baseCount + regList.length;
+
+    final cityTag = (row['city'] as String?)?.toLowerCase();
+    final isFeatured = (row['is_featured'] as bool?) ?? false;
+    final isNearby = cityTag == 'nearby';
+
+    return EventItem(
+      id: row['id'].toString(),
+      title: (row['title'] as String?) ?? 'Untitled Event',
+      category: category,
+      eventMode: online ? 'online' : 'offline',
+      date: formattedDate,
+      time: formattedTime,
+      location: locationLabel,
+      distance: distanceLabel,
+      onlinePlatform: platform,
+      meetingUrl: row['meeting_url'] as String?,
+      price: priceLabel,
+      description: (row['description'] as String?) ?? '',
+      imageUrl: (row['banner_url'] as String?)?.isNotEmpty == true
+          ? row['banner_url'] as String
+          : defaultBanner,
+      attendees: totalAttendees,
+      attendeeList: regList,
+      isFeatured: isFeatured,
+      isNearby: isNearby,
+      icon: icon,
+      gradientColors: colors,
+    );
+  }
+
+  static String _parseStartsAtIso(String dateStr, String timeStr) {
+    const months = <String, int>{
+      'jan': 1,
+      'feb': 2,
+      'mar': 3,
+      'apr': 4,
+      'may': 5,
+      'jun': 6,
+      'jul': 7,
+      'aug': 8,
+      'sep': 9,
+      'oct': 10,
+      'nov': 11,
+      'dec': 12,
+    };
+    try {
+      final cleanedDate = dateStr.replaceAll(',', '').trim();
+      final dateParts = cleanedDate.split(RegExp(r'\s+'));
+      int month = 10;
+      int day = 24;
+      int year = 2026;
+      if (dateParts.length >= 3) {
+        final mKey = dateParts[0].toLowerCase();
+        month = months[mKey.length >= 3 ? mKey.substring(0, 3) : mKey] ?? 10;
+        day = int.tryParse(dateParts[1]) ?? 24;
+        year = int.tryParse(dateParts[2]) ?? 2026;
+      }
+
+      int hour = 18;
+      int minute = 0;
+      final cleanedTime = timeStr.trim().toUpperCase();
+      final timeMatch = RegExp(r'(\d{1,2}):(\d{2})\s*(AM|PM)?')
+          .firstMatch(cleanedTime);
+      if (timeMatch != null) {
+        hour = int.tryParse(timeMatch.group(1)!) ?? 18;
+        minute = int.tryParse(timeMatch.group(2)!) ?? 0;
+        final period = timeMatch.group(3);
+        if (period == 'PM' && hour < 12) hour += 12;
+        if (period == 'AM' && hour == 12) hour = 0;
+      }
+
+      return DateTime(year, month, day, hour, minute).toUtc().toIso8601String();
+    } catch (_) {
+      return DateTime.now().toUtc().toIso8601String();
+    }
+  }
+
+  static (String, String) _formatDateTime(DateTime? dt) {
+    if (dt == null) return ('Nov 15, 2026', '06:00 PM');
+    const monthNames = <String>[
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final month = monthNames[dt.month - 1];
+    final day = dt.day.toString().padLeft(2, '0');
+    final dateLabel = '$month $day, ${dt.year}';
+
+    final hour12 = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+    final hourPadded = hour12.toString().padLeft(2, '0');
+    final minPadded = dt.minute.toString().padLeft(2, '0');
+    final period = dt.hour >= 12 ? 'PM' : 'AM';
+    final timeLabel = '$hourPadded:$minPadded $period';
+
+    return (dateLabel, timeLabel);
+  }
 }
 
 const List<String> eventCategories = <String>[
@@ -146,257 +445,3 @@ const List<String> eventModeFilters = <String>[
   'Featured',
   'Nearby',
 ];
-
-const List<EventAttendee> defaultSampleAttendees = <EventAttendee>[
-  EventAttendee(
-    id: 'sample-u1',
-    name: 'Aarav Sharma',
-    email: 'aarav.sharma@example.com',
-    registeredAtLabel: '2 days ago',
-  ),
-  EventAttendee(
-    id: 'sample-u2',
-    name: 'Priya Patel',
-    email: 'priya.patel@example.com',
-    registeredAtLabel: 'Yesterday',
-  ),
-  EventAttendee(
-    id: 'sample-u3',
-    name: 'Rohan Verma',
-    email: 'rohan.verma@example.com',
-    registeredAtLabel: '5 hours ago',
-  ),
-  EventAttendee(
-    id: 'sample-u4',
-    name: 'Sneha Nair',
-    email: 'sneha.nair@example.com',
-    registeredAtLabel: '1 hour ago',
-  ),
-];
-
-const List<EventItem> initialSeedEvents = <EventItem>[
-  EventItem(
-    id: 'feat-1',
-    title: 'Flutter Forward Global Summit',
-    category: 'Tech',
-    eventMode: 'offline',
-    date: 'Oct 24, 2026',
-    time: '09:30 AM',
-    location: 'Grand Convention Center',
-    distance: '2.4 km away',
-    price: 'Free',
-    description:
-        'Join developers and designers for keynotes, live demos, and hands-on sessions covering the latest in Flutter & Dart.',
-    imageUrl:
-        'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&auto=format&fit=crop&q=80',
-    attendees: 420,
-    attendeeList: defaultSampleAttendees,
-    isFeatured: true,
-    icon: Icons.code_rounded,
-    gradientColors: <Color>[Color(0xFF00695C), Color(0xFF26A69A)],
-  ),
-  EventItem(
-    id: 'feat-2',
-    title: 'Sunset Indie Music Festival',
-    category: 'Music',
-    eventMode: 'offline',
-    date: 'Nov 02, 2026',
-    time: '05:00 PM',
-    location: 'Riverside Amphitheater',
-    distance: '4.1 km away',
-    price: '\$35',
-    description:
-        'An open-air evening of live indie bands, acoustic sets, food trucks, and immersive light installations.',
-    imageUrl:
-        'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&auto=format&fit=crop&q=80',
-    attendees: 850,
-    attendeeList: defaultSampleAttendees,
-    isFeatured: true,
-    icon: Icons.music_note_rounded,
-    gradientColors: <Color>[Color(0xFF00838F), Color(0xFF4DD0E1)],
-  ),
-  EventItem(
-    id: 'feat-3',
-    title: 'Global AI & Product Design Keynote',
-    category: 'Business',
-    eventMode: 'online',
-    onlinePlatform: 'Zoom Webinar',
-    meetingUrl: 'https://zoom.us/j/ai-product-expo',
-    date: 'Nov 12, 2026',
-    time: '10:00 AM',
-    location: 'Zoom Webinar (Online)',
-    distance: 'Online Event',
-    price: 'Free',
-    description:
-        'Explore how generative AI is transforming product design workflows with industry leaders and startup founders.',
-    imageUrl:
-        'https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&auto=format&fit=crop&q=80',
-    attendees: 310,
-    attendeeList: defaultSampleAttendees,
-    isFeatured: true,
-    icon: Icons.auto_awesome_rounded,
-    gradientColors: <Color>[Color(0xFF2E7D32), Color(0xFF66BB6A)],
-  ),
-  EventItem(
-    id: 'feat-4',
-    title: 'Modern Digital Art Biennale',
-    category: 'Art',
-    eventMode: 'offline',
-    date: 'Nov 18, 2026',
-    time: '11:00 AM',
-    location: 'Metropolitan Art Gallery',
-    distance: '5.5 km away',
-    price: '\$20',
-    description:
-        'Interactive projection mapping, generative sculptures, and talks with contemporary digital artists.',
-    imageUrl:
-        'https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=800&auto=format&fit=crop&q=80',
-    attendees: 195,
-    attendeeList: defaultSampleAttendees,
-    isFeatured: true,
-    icon: Icons.palette_rounded,
-    gradientColors: <Color>[Color(0xFF004D40), Color(0xFF009688)],
-  ),
-  EventItem(
-    id: 'near-1',
-    title: 'UI/UX Prototyping Bootcamp',
-    category: 'Workshops',
-    eventMode: 'offline',
-    date: 'Oct 15, 2026',
-    time: '02:00 PM',
-    location: 'CoWork Studio, Sector 4',
-    distance: '0.8 km away',
-    price: 'Free',
-    description:
-        'A practical afternoon workshop on building responsive design systems and interactive prototypes.',
-    imageUrl:
-        'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=800&auto=format&fit=crop&q=80',
-    attendees: 64,
-    attendeeList: defaultSampleAttendees,
-    isNearby: true,
-    icon: Icons.design_services_rounded,
-    gradientColors: <Color>[Color(0xFF00796B), Color(0xFF4DB6AC)],
-  ),
-  EventItem(
-    id: 'near-2',
-    title: 'Startup Founders Mixer',
-    category: 'Business',
-    eventMode: 'offline',
-    date: 'Oct 18, 2026',
-    time: '06:30 PM',
-    location: 'The Terrace Lounge',
-    distance: '1.2 km away',
-    price: '\$15',
-    description:
-        'Connect with local entrepreneurs, angel investors, and builders over coffee and lightning pitches.',
-    imageUrl:
-        'https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=800&auto=format&fit=crop&q=80',
-    attendees: 112,
-    attendeeList: defaultSampleAttendees,
-    isNearby: true,
-    icon: Icons.handshake_rounded,
-    gradientColors: <Color>[Color(0xFF006064), Color(0xFF26C6DA)],
-  ),
-  EventItem(
-    id: 'near-3',
-    title: 'City Night 5K Community Run',
-    category: 'Sports',
-    eventMode: 'offline',
-    date: 'Oct 20, 2026',
-    time: '07:00 PM',
-    location: 'Central Park North Gate',
-    distance: '1.5 km away',
-    price: 'Free',
-    description:
-        'Lace up for a friendly 5K evening run through the city park followed by refreshments and music.',
-    imageUrl:
-        'https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=800&auto=format&fit=crop&q=80',
-    attendees: 240,
-    attendeeList: defaultSampleAttendees,
-    isNearby: true,
-    icon: Icons.directions_run_rounded,
-    gradientColors: <Color>[Color(0xFF1B5E20), Color(0xFF4CAF50)],
-  ),
-  EventItem(
-    id: 'near-4',
-    title: 'Acoustic Jazz & Open Mic',
-    category: 'Music',
-    eventMode: 'offline',
-    date: 'Oct 22, 2026',
-    time: '08:00 PM',
-    location: 'Blue Note Cafe',
-    distance: '1.9 km away',
-    price: '\$10',
-    description:
-        'Intimate live jazz performances and open mic slots for local vocalists and instrumentalists.',
-    imageUrl:
-        'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=800&auto=format&fit=crop&q=80',
-    attendees: 88,
-    attendeeList: defaultSampleAttendees,
-    isNearby: true,
-    icon: Icons.library_music_rounded,
-    gradientColors: <Color>[Color(0xFF37474F), Color(0xFF78909C)],
-  ),
-  EventItem(
-    id: 'up-1',
-    title: 'Cloud Native & Supabase Live Stream',
-    category: 'Tech',
-    eventMode: 'online',
-    onlinePlatform: 'Google Meet',
-    meetingUrl: 'https://meet.google.com/sup-cloud-live',
-    date: 'Oct 26, 2026',
-    time: '04:00 PM',
-    location: 'Google Meet (Online)',
-    distance: 'Online Event',
-    price: 'Free',
-    description:
-        'Deep dive into real-time Postgres, Edge Functions, and scalable authentication patterns.',
-    imageUrl:
-        'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=800&auto=format&fit=crop&q=80',
-    attendees: 150,
-    attendeeList: defaultSampleAttendees,
-    icon: Icons.cloud_done_rounded,
-    gradientColors: <Color>[Color(0xFF00695C), Color(0xFF26A69A)],
-  ),
-  EventItem(
-    id: 'up-2',
-    title: 'Creative Photography Walk',
-    category: 'Art',
-    eventMode: 'offline',
-    date: 'Oct 29, 2026',
-    time: '06:00 AM',
-    location: 'Old Town Heritage Square',
-    distance: '2.7 km away',
-    price: '\$12',
-    description:
-        'Capture golden-hour street and architectural photography guided by professional mentors.',
-    imageUrl:
-        'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&auto=format&fit=crop&q=80',
-    attendees: 45,
-    attendeeList: defaultSampleAttendees,
-    icon: Icons.camera_alt_rounded,
-    gradientColors: <Color>[Color(0xFF00838F), Color(0xFF26C6DA)],
-  ),
-  EventItem(
-    id: 'up-3',
-    title: 'Product Management Masterclass',
-    category: 'Workshops',
-    eventMode: 'online',
-    onlinePlatform: 'YouTube Live',
-    meetingUrl: 'https://youtube.com/live/pm-masterclass',
-    date: 'Nov 05, 2026',
-    time: '11:00 AM',
-    location: 'YouTube Live (Online)',
-    distance: 'Online Event',
-    price: '\$25',
-    description:
-        'Learn user discovery, roadmap prioritization, and metrics that matter from senior PMs.',
-    imageUrl:
-        'https://images.unsplash.com/photo-1552664730-d307ca884978?w=800&auto=format&fit=crop&q=80',
-    attendees: 95,
-    attendeeList: defaultSampleAttendees,
-    icon: Icons.lightbulb_outline_rounded,
-    gradientColors: <Color>[Color(0xFF2E7D32), Color(0xFF66BB6A)],
-  ),
-];
-

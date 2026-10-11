@@ -6,9 +6,23 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// User profile editor and role-switching screen (Tab 3).
+///
+/// **Purpose:**
+/// Allows the signed-in user to view and edit their display name, phone number,
+/// and avatar photo, switch between **User** and **Admin** roles, or sign out.
+///
+/// **How it works:**
+/// 1. Watches [ProfileProvider] so the avatar, role badge, and loading spinner
+///    react immediately to changes.
+/// 2. Binds form fields to persistent [TextEditingController]s stored inside
+///    [ProfileProvider] so the screen itself remains a `StatelessWidget`.
 class ProfilePage extends StatelessWidget {
+  /// Creates the [ProfilePage] widget.
   const ProfilePage({super.key});
 
+  // Validates the form, dismisses the keyboard, and calls
+  // ProfileProvider.saveProfile() to persist edits to Supabase.
   Future<void> _saveProfile(BuildContext formContext) async {
     final profileProvider = formContext.read<ProfileProvider>();
     if (!(Form.maybeOf(formContext)?.validate() ?? false)) return;
@@ -36,6 +50,8 @@ class ProfilePage extends StatelessWidget {
     }
   }
 
+  // Opens the device image gallery and uploads the chosen photo to Supabase
+  // Storage via ProfileProvider.uploadAvatar().
   Future<void> _pickPhoto(BuildContext context) async {
     try {
       await context.read<ProfileProvider>().uploadAvatar();

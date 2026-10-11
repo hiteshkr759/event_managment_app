@@ -1,11 +1,25 @@
 import 'package:event_managment_app/providers/auth_provider.dart';
+import 'package:event_managment_app/providers/events_provider.dart';
 import 'package:event_managment_app/providers/navigation_provider.dart';
 import 'package:event_managment_app/providers/profile_provider.dart';
 import 'package:event_managment_app/widget/role_badge.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+/// Side navigation drawer displaying user profile info and quick actions.
+///
+/// **Purpose:**
+/// Provides an alternative navigation menu from the top-left hamburger icon,
+/// showing the current user's name, email, [RoleBadge], page links, a manual
+/// Supabase refresh button, and Sign Out.
+///
+/// **How it works:**
+/// 1. Watches [ProfileProvider] to display live user metadata in the header.
+/// 2. Selects [NavigationProvider.currentIndex] to highlight the active tab.
+/// 3. Closes the drawer via `Navigator.of(context).pop()` before switching tabs
+///    or signing out.
 class EventDrawer extends StatelessWidget {
+  /// Creates an [EventDrawer] widget.
   const EventDrawer({super.key});
 
   @override
@@ -16,6 +30,8 @@ class EventDrawer extends StatelessWidget {
       (nav) => nav.currentIndex,
     );
 
+    // Helper function that updates the active tab in NavigationProvider and
+    // closes the side drawer overlay.
     void selectTab(int index) {
       context.read<NavigationProvider>().setTab(index);
       Navigator.of(context).pop();
@@ -85,6 +101,17 @@ class EventDrawer extends StatelessWidget {
             onTap: () => selectTab(2),
           ),
           const Divider(),
+          ListTile(
+            leading: const Icon(Icons.refresh_rounded),
+            title: const Text('Refresh Events from Server'),
+            onTap: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              final eventsProvider = context.read<EventsProvider>();
+              Navigator.of(context).pop();
+              final (_, message) = await eventsProvider.fetchEventsFromServer();
+              messenger.showSnackBar(SnackBar(content: Text(message)));
+            },
+          ),
           ListTile(
             leading: const Icon(Icons.logout_rounded),
             title: const Text('Sign Out'),

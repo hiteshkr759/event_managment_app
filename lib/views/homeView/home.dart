@@ -11,9 +11,25 @@ import 'package:event_managment_app/widget/upcoming_event_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+/// The primary discovery dashboard shown on the first bottom navigation tab.
+///
+/// **Purpose:**
+/// Displays a personalized greeting, search bar, category chips, a "Featured
+/// Events" carousel, an "Events Near Me" carousel, and an "Upcoming Events"
+/// list.
+///
+/// **How it works:**
+/// 1. Calls `context.watch<EventsProvider>()` so any change to the search query,
+///    category chip, or server-loaded events triggers a rebuild.
+/// 2. Uses a [CustomScrollView] with `Sliver` widgets so horizontal carousels
+///    and vertical lists scroll smoothly together inside a single scrollable
+///    viewport.
 class HomePage extends StatelessWidget {
+  /// Creates the [HomePage] widget.
   const HomePage({super.key});
 
+  // Switches the All Events filter and jumps to Tab 1 ("Events") when the user
+  // taps "See All" on any section header.
   void _onSeeAllEvents(BuildContext context, String modeFilter) {
     context.read<EventsProvider>().setAllModeFilter(modeFilter);
     context.read<NavigationProvider>().setTab(1);

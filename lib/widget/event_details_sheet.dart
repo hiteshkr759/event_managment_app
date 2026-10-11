@@ -7,7 +7,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Helper function to open the Event Details modal bottom sheet from any screen.
+/// Opens the modal bottom sheet displaying full details and RSVP controls for [event].
+///
+/// **Purpose:**
+/// Provides a single reusable helper function that any event card or list tile
+/// can call when tapped.
+///
+/// **How it works:**
+/// Calls Flutter's built-in [showModalBottomSheet] and passes `event.id` into
+/// [EventDetailsSheet] so the sheet can watch live updates from [EventsProvider].
 void showEventDetailsSheet(BuildContext context, EventItem event) {
   showModalBottomSheet<void>(
     context: context,
@@ -21,9 +29,22 @@ void showEventDetailsSheet(BuildContext context, EventItem event) {
 }
 
 /// Reusable bottom sheet content displaying full details for an [EventItem].
+///
+/// **Purpose:**
+/// Shows the event banner, category/mode badges, price, date/time, venue or
+/// online meeting link, attendee count, description, and the "Book / Attend"
+/// toggle button.
+///
+/// **How it works:**
+/// Looks up the latest [EventItem] from [EventsProvider] by [eventId] using
+/// `context.watch<EventsProvider>()`. When the user taps "Book / Attend Event",
+/// it calls [EventsProvider.toggleAttendance], which updates the attendee count
+/// immediately and syncs with Supabase.
 class EventDetailsSheet extends StatelessWidget {
+  /// The unique ID of the event to display.
   final String eventId;
 
+  /// Creates an [EventDetailsSheet] for the given [eventId].
   const EventDetailsSheet({super.key, required this.eventId});
 
   @override
@@ -33,6 +54,12 @@ class EventDetailsSheet extends StatelessWidget {
     final profile = context.watch<ProfileProvider>().profile;
 
     final event = eventsProvider.getEventById(eventId);
+    if (event == null) {
+      return const SizedBox(
+        height: 200,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
     final currentUserId =
         profile?.id ??
         Supabase.instance.client.auth.currentUser?.id ??
