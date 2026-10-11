@@ -18,7 +18,27 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// [notifyListeners], which automatically rebuilds any `StatelessWidget`
 /// watching [EventsProvider].
 class EventsProvider extends ChangeNotifier {
+  /// Number of events requested per page from Supabase (`LIMIT 5`).
+  ///
+  /// **Why 5?**
+  /// Fetching small pages (e.g., 5 rows at a time instead of thousands) keeps
+  /// initial startup fast and reduces mobile data usage.
+  static const int pageSize = 5;
+
   List<EventItem> _allEvents = <EventItem>[];
+
+  // Server-side pagination state
+  int _currentPage = 0;
+  bool _hasMoreEvents = true;
+  bool _isLoadingMore = false;
+
+  /// Scroll controller attached to the Home tab's `CustomScrollView` to detect
+  /// when the user scrolls near the bottom and auto-trigger [loadMoreEvents].
+  final ScrollController homeScrollController = ScrollController();
+
+  /// Scroll controller attached to the All Events tab's `CustomScrollView` to
+  /// detect when the user scrolls near the bottom and auto-trigger [loadMoreEvents].
+  final ScrollController allEventsScrollController = ScrollController();
 
   /// Controller for the search bar on the Home tab.
   final TextEditingController homeSearchController = TextEditingController();
@@ -77,23 +97,35 @@ class EventsProvider extends ChangeNotifier {
   bool _isCreating = false;
   bool _isLoading = false;
 
-  /// Creates an [EventsProvider] and immediately fetches events from Supabase.
-  ///
-  /// **How it works:**
-  /// Schedules [fetchEventsFromServer] using [Future.microtask] so the initial
-  /// network call runs right after widget initialization, and also listens to
-  /// Supabase auth state changes so events are re-fetched when a user signs in.
+  /// Creates an [EventsProvider], attaches infinite-scroll listeners, and fetches
+  /// the first page (`Page 0`) of events from Supabase.
   EventsProvider() {
+    homeScrollController.addListener(() => _onScroll(homeScrollController));
+    allEventsScrollController.addListener(
+      () => _onScroll(allEventsScrollController),
+    );
+
     Future.microtask(fetchEventsFromServer);
     Supabase.instance.client.auth.onAuthStateChange.listen(
       (data) {
-        if (data.event == AuthChangeEvent.signedIn ||
-            data.event == AuthChangeEvent.initialSession) {
+        if (data.event == AuthChangeEvent.signedIn) {
           Future.microtask(fetchEventsFromServer);
         }
       },
       onError: (_, _) {},
     );
+  }
+
+  // Triggered whenever the user scrolls on the Home or All Events screen.
+  // When the scroll position is within 200 pixels of the bottom, it requests
+  // the next page of events from Supabase.
+  void _onScroll(ScrollController controller) {
+    if (!controller.hasClients) return;
+    final maxScroll = controller.position.maxScrollExtent;
+    final currentScroll = controller.position.pixels;
+    if (currentScroll >= maxScroll - 200) {
+      loadMoreEvents();
+    }
   }
 
   // Safely notifies listeners without triggering Flutter's "setState() or
@@ -109,8 +141,17 @@ class EventsProvider extends ChangeNotifier {
     }
   }
 
-  /// All events currently loaded from Supabase.
+  /// All events currently loaded across fetched pages from Supabase.
   List<EventItem> get allEvents => _allEvents;
+
+  /// Zero-based index of the last page fetched from Supabase (`0` = first page).
+  int get currentPage => _currentPage;
+
+  /// Whether additional pages of events are still available on the server.
+  bool get hasMoreEvents => _hasMoreEvents;
+
+  /// Whether the next page of events (`page > 0`) is currently being loaded.
+  bool get isLoadingMore => _isLoadingMore;
 
   /// Currently selected category chip on the Home screen.
   String get homeCategory => _homeCategory;
@@ -145,7 +186,7 @@ class EventsProvider extends ChangeNotifier {
   /// Whether a new event submission is currently in progress.
   bool get isCreating => _isCreating;
 
-  /// Whether events are currently being fetched from Supabase.
+  /// Whether the initial page (`Page 0`) of events is being fetched from Supabase.
   bool get isLoading => _isLoading;
 
   /// Alias for [isLoading] indicating whether a server sync is in progress.
@@ -174,17 +215,14 @@ class EventsProvider extends ChangeNotifier {
     _allEvents.where((e) => e.isNearby).toList(),
   );
 
-  /// Standard upcoming events (neither featured nor nearby), filtered for Home.
-  List<EventItem> get upcomingEvents => _filterHomeSection(
-    _allEvents.where((e) => !e.isFeatured && !e.isNearby).toList(),
-  );
+  /// Paginated upcoming events feed for the Home screen.
+  List<EventItem> get upcomingEvents => _filterHomeSection(_allEvents);
 
-  /// Filtered list of all events for the "All Events" directory tab.
+  /// Filtered list of loaded events for the "All Events" directory tab.
   ///
   /// **Purpose:**
-  /// Combines three filters simultaneously: mode (`Offline`, `Online`,
-  /// `Featured`, `Nearby`), category (`Tech`, `Music`, etc.), and free-text
-  /// search query.
+  /// Returns the currently loaded pages of events matching the active mode,
+  /// category, and search filters.
   List<EventItem> get filteredAllEvents {
     final q = _allSearchQuery.trim().toLowerCase();
     return _allEvents.where((event) {
@@ -223,18 +261,21 @@ class EventsProvider extends ChangeNotifier {
     }).toList();
   }
 
-  /// Updates the selected [category] chip on the Home screen and notifies UI.
+  /// Updates the selected [category] chip on the Home screen and fetches Page 0.
   void setHomeCategory(String category) {
+    if (_homeCategory == category) return;
     _homeCategory = category;
     _featuredPageIndex = 0;
     _safeNotify();
+    fetchEventsFromServer();
   }
 
-  /// Updates the Home search [query] as the user types and notifies UI.
+  /// Updates the Home search [query] as the user types and fetches Page 0.
   void setHomeSearchQuery(String query) {
     _homeSearchQuery = query;
     _featuredPageIndex = 0;
     _safeNotify();
+    fetchEventsFromServer();
   }
 
   /// Clears the Home search text field and resets the search filter.
@@ -250,22 +291,28 @@ class EventsProvider extends ChangeNotifier {
     _safeNotify();
   }
 
-  /// Updates the mode [filter] (`All`, `Offline`, `Online`, etc.) on All Events.
+  /// Updates the mode [filter] (`All`, `Offline`, `Online`, etc.) on All Events
+  /// and fetches Page 0 from the server with the new filter.
   void setAllModeFilter(String filter) {
+    if (_allModeFilter == filter) return;
     _allModeFilter = filter;
     _safeNotify();
+    fetchEventsFromServer();
   }
 
-  /// Updates the selected [category] chip on the All Events screen.
+  /// Updates the selected [category] chip on the All Events screen and fetches Page 0.
   void setAllCategory(String category) {
+    if (_allCategory == category) return;
     _allCategory = category;
     _safeNotify();
+    fetchEventsFromServer();
   }
 
-  /// Updates the search [query] on the All Events screen.
+  /// Updates the search [query] on the All Events screen and fetches Page 0.
   void setAllSearchQuery(String query) {
     _allSearchQuery = query;
     _safeNotify();
+    fetchEventsFromServer();
   }
 
   /// Clears the All Events search input and resets the search query.
@@ -313,41 +360,90 @@ class EventsProvider extends ChangeNotifier {
     _safeNotify();
   }
 
-  /// Pulls all events and their attendee registrations directly from Supabase.
+  // Builds and executes a server-side paginated query on `public.events` for
+  // the requested zero-based `page` index.
+  //
+  // **How Server-Side Pagination works in Supabase:**
+  // - Calculates `from = page * pageSize` and `to = from + pageSize - 1`.
+  // - Applies active filters (`.eq`, `.or`) directly in PostgreSQL.
+  // - Calls `.range(from, to)`, which translates to SQL `LIMIT 5 OFFSET <from>`
+  //   so only 5 rows travel over the network per request.
+  Future<List<EventItem>> _fetchPageFromSupabase(int page) async {
+    final client = Supabase.instance.client;
+    final from = page * pageSize;
+    final to = from + pageSize - 1;
+
+    var query = client.from('events').select(
+      '*, event_registrations(user_id, registered_at, profiles(id, full_name, email, avatar_url))',
+    );
+
+    // 1. Apply Server-Side Mode Filter (if set on All Events tab)
+    switch (_allModeFilter) {
+      case 'Offline':
+        query = query.eq('event_mode', 'offline');
+      case 'Online':
+        query = query.eq('event_mode', 'online');
+      case 'Featured':
+        query = query.eq('is_featured', true);
+      case 'Nearby':
+        query = query.eq('city', 'nearby');
+    }
+
+    // 2. Apply Server-Side Category Filter
+    final activeCategory = _allCategory != 'All'
+        ? _allCategory
+        : (_homeCategory != 'All' ? _homeCategory : 'All');
+    if (activeCategory != 'All') {
+      query = query.eq('category', activeCategory);
+    }
+
+    // 3. Apply Server-Side Search Filter (case-insensitive ILIKE)
+    final activeQuery = _allSearchQuery.trim().isNotEmpty
+        ? _allSearchQuery.trim()
+        : _homeSearchQuery.trim();
+    if (activeQuery.isNotEmpty) {
+      query = query.or(
+        'title.ilike.%$activeQuery%,venue_name.ilike.%$activeQuery%,category.ilike.%$activeQuery%,online_platform.ilike.%$activeQuery%',
+      );
+    }
+
+    // 4. Order chronologically and request ONLY the current page slice [from..to]
+    final serverRows = await query
+        .order('starts_at', ascending: true)
+        .range(from, to);
+
+    return serverRows
+        .whereType<Map<String, dynamic>>()
+        .map(EventItem.fromSupabaseMap)
+        .toList();
+  }
+
+  /// Resets pagination to `Page 0` and fetches the first [pageSize] events from Supabase.
   ///
   /// **Purpose:**
-  /// Synchronizes the app's `_allEvents` list with the remote `public.events`
-  /// and `public.event_registrations` tables in Supabase.
+  /// Loads only the initial page of events (`0..4`) on app startup, pull-to-refresh,
+  /// or when filters change, instead of downloading the entire database table at once.
   ///
   /// **How it works:**
-  /// 1. Sets `_isLoading = true` so the UI can show a loading spinner.
-  /// 2. Runs a relational `SELECT` query on `events` that also joins
-  ///    `event_registrations` and each attendee's `profiles` row.
-  /// 3. Converts each JSON map into an [EventItem] using
-  ///    [EventItem.fromSupabaseMap] and notifies listeners to refresh the UI.
+  /// 1. Resets `_currentPage = 0` and `_hasMoreEvents = true`.
+  /// 2. Calls `_fetchPageFromSupabase(0)` which runs `.range(0, pageSize - 1)`.
+  /// 3. If the server returns fewer than [pageSize] items, sets `_hasMoreEvents = false`
+  ///    so no further pages are requested.
   Future<(bool, String)> fetchEventsFromServer() async {
-    if (_isLoading) return (false, 'Already refreshing events...');
     _isLoading = true;
+    _currentPage = 0;
+    _hasMoreEvents = true;
     _safeNotify();
 
     try {
-      final client = Supabase.instance.client;
-      final serverRows = await client
-          .from('events')
-          .select(
-            '*, event_registrations(user_id, registered_at, profiles(id, full_name, email, avatar_url))',
-          )
-          .order('created_at', ascending: true);
-
-      _allEvents = serverRows
-          .whereType<Map<String, dynamic>>()
-          .map(EventItem.fromSupabaseMap)
-          .toList();
+      final firstPageItems = await _fetchPageFromSupabase(0);
+      _allEvents = firstPageItems;
+      _hasMoreEvents = firstPageItems.length >= pageSize;
       _safeNotify();
 
       return (
         true,
-        'Loaded ${_allEvents.length} events from Supabase!',
+        'Loaded page 1 (${_allEvents.length} events) from Supabase!',
       );
     } catch (e) {
       debugPrint('Failed to fetch events from Supabase: $e');
@@ -358,11 +454,52 @@ class EventsProvider extends ChangeNotifier {
     }
   }
 
+  /// Fetches the next page of events from Supabase and appends them to [allEvents].
+  ///
+  /// **Purpose:**
+  /// Powers infinite scrolling and the "Load More Events" button so additional
+  /// events are fetched on-demand from the server as the user scrolls down.
+  ///
+  /// **How it works:**
+  /// 1. Guards against duplicate calls: returns immediately if [_isLoading],
+  ///    [_isLoadingMore], or `![hasMoreEvents]`.
+  /// 2. Requests `nextPage = _currentPage + 1` using `.range(from, to)`.
+  /// 3. Appends the newly returned items to `_allEvents` (deduplicating by `id`).
+  /// 4. Sets `_hasMoreEvents = false` once Supabase returns fewer than [pageSize] rows.
+  Future<void> loadMoreEvents() async {
+    if (_isLoading || _isLoadingMore || !_hasMoreEvents) return;
+
+    _isLoadingMore = true;
+    _safeNotify();
+
+    try {
+      final nextPage = _currentPage + 1;
+      final nextItems = await _fetchPageFromSupabase(nextPage);
+
+      if (nextItems.isEmpty) {
+        _hasMoreEvents = false;
+      } else {
+        final existingIds = _allEvents.map((e) => e.id).toSet();
+        final uniqueNewItems = nextItems
+            .where((e) => !existingIds.contains(e.id))
+            .toList();
+        _allEvents = <EventItem>[..._allEvents, ...uniqueNewItems];
+        _currentPage = nextPage;
+        _hasMoreEvents = nextItems.length >= pageSize;
+      }
+    } catch (e) {
+      debugPrint('Failed to load next page from Supabase: $e');
+    } finally {
+      _isLoadingMore = false;
+      _safeNotify();
+    }
+  }
+
   /// Toggles the current user's attendance for [event] and persists it to Supabase.
   ///
   /// **Purpose:**
   /// Lets a user book/attend an event or cancel their registration with instant
-  /// UI feedback.
+  /// UI feedback while preserving the currently loaded pagination state.
   ///
   /// **How it works:**
   /// 1. Performs an **optimistic UI update** first: immediately adds or removes
@@ -370,7 +507,8 @@ class EventsProvider extends ChangeNotifier {
   ///    so the button updates without lag.
   /// 2. Persists the change to `public.event_registrations` in Supabase using
   ///    `upsert` (when joining) or `delete` (when cancelling).
-  /// 3. Calls [fetchEventsFromServer] to ensure local state matches the server.
+  /// 3. Refreshes only that single event row from Supabase so the user's loaded
+  ///    pages and scroll position are preserved.
   Future<bool> toggleAttendance(EventItem event, Profile? profile) async {
     final client = Supabase.instance.client;
     final authUser = client.auth.currentUser;
@@ -420,7 +558,21 @@ class EventsProvider extends ChangeNotifier {
             'user_id': authUser.id,
           }, onConflict: 'event_id,user_id');
         }
-        await fetchEventsFromServer();
+        // Fetch only the updated event row so we don't reset loaded pages
+        final refreshedRow = await client
+            .from('events')
+            .select(
+              '*, event_registrations(user_id, registered_at, profiles(id, full_name, email, avatar_url))',
+            )
+            .eq('id', event.id)
+            .maybeSingle();
+        if (refreshedRow != null) {
+          final refreshedItem = EventItem.fromSupabaseMap(refreshedRow);
+          _allEvents = _allEvents
+              .map((item) => item.id == event.id ? refreshedItem : item)
+              .toList();
+          _safeNotify();
+        }
       }
     } catch (e) {
       debugPrint('Failed to update attendance in Supabase: $e');
@@ -529,8 +681,10 @@ class EventsProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    // Always dispose TextEditingControllers when the provider is disposed to
-    // free memory and prevent memory leaks.
+    // Always dispose ScrollControllers and TextEditingControllers when the
+    // provider is disposed to free memory and prevent memory leaks.
+    homeScrollController.dispose();
+    allEventsScrollController.dispose();
     homeSearchController.dispose();
     allSearchController.dispose();
     titleController.dispose();

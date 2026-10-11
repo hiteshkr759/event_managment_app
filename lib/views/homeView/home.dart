@@ -4,6 +4,7 @@ import 'package:event_managment_app/providers/navigation_provider.dart';
 import 'package:event_managment_app/providers/profile_provider.dart';
 import 'package:event_managment_app/widget/event_carousel.dart';
 import 'package:event_managment_app/widget/event_details_sheet.dart';
+import 'package:event_managment_app/widget/pagination_footer.dart';
 import 'package:event_managment_app/widget/role_badge.dart';
 import 'package:event_managment_app/widget/search_filter_bar.dart';
 import 'package:event_managment_app/widget/section_header.dart';
@@ -15,15 +16,15 @@ import 'package:provider/provider.dart';
 ///
 /// **Purpose:**
 /// Displays a personalized greeting, search bar, category chips, a "Featured
-/// Events" carousel, an "Events Near Me" carousel, and an "Upcoming Events"
-/// list.
+/// Events" carousel, an "Events Near Me" carousel, and a server-paginated
+/// "Upcoming Events" list.
 ///
 /// **How it works:**
 /// 1. Calls `context.watch<EventsProvider>()` so any change to the search query,
 ///    category chip, or server-loaded events triggers a rebuild.
-/// 2. Uses a [CustomScrollView] with `Sliver` widgets so horizontal carousels
-///    and vertical lists scroll smoothly together inside a single scrollable
-///    viewport.
+/// 2. Attaches [EventsProvider.homeScrollController] to the [CustomScrollView]
+///    so scrolling near the bottom automatically calls
+///    [EventsProvider.loadMoreEvents] to fetch the next page from Supabase.
 class HomePage extends StatelessWidget {
   /// Creates the [HomePage] widget.
   const HomePage({super.key});
@@ -50,6 +51,7 @@ class HomePage extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1000),
             child: CustomScrollView(
+              controller: eventsProvider.homeScrollController,
               slivers: [
                 // 1. Greeting & Reusable Search Bar
                 SliverToBoxAdapter(
@@ -114,11 +116,12 @@ class HomePage extends StatelessWidget {
                   ),
                 ),
 
-                // 5. Upcoming Events Vertical List
+                // 5. Upcoming Events Vertical List (Server-Side Paginated)
                 SliverToBoxAdapter(
                   child: SectionHeader(
                     title: 'Upcoming Events',
-                    subtitle: 'More events to explore',
+                    subtitle:
+                        'Loaded ${upcomingEvents.length} events (Page ${eventsProvider.currentPage + 1})',
                     onSeeAll: () => _onSeeAllEvents(context, 'All'),
                   ),
                 ),
@@ -128,9 +131,9 @@ class HomePage extends StatelessWidget {
                       message: 'No upcoming events match your filter.',
                     ),
                   )
-                else
+                else ...[
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
                     sliver: SliverList.separated(
                       itemCount: upcomingEvents.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 12),
@@ -143,6 +146,16 @@ class HomePage extends StatelessWidget {
                       },
                     ),
                   ),
+                  SliverToBoxAdapter(
+                    child: PaginationFooter(
+                      isLoadingMore: eventsProvider.isLoadingMore,
+                      hasMore: eventsProvider.hasMoreEvents,
+                      loadedCount: upcomingEvents.length,
+                      currentPage: eventsProvider.currentPage,
+                      onLoadMore: eventsProvider.loadMoreEvents,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

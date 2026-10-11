@@ -4,6 +4,7 @@ import 'package:event_managment_app/providers/profile_provider.dart';
 import 'package:event_managment_app/views/eventsView/create_event_page.dart';
 import 'package:event_managment_app/widget/event_carousel.dart';
 import 'package:event_managment_app/widget/event_details_sheet.dart';
+import 'package:event_managment_app/widget/pagination_footer.dart';
 import 'package:event_managment_app/widget/role_badge.dart';
 import 'package:event_managment_app/widget/search_filter_bar.dart';
 import 'package:event_managment_app/widget/upcoming_event_tile.dart';
@@ -13,14 +14,17 @@ import 'package:provider/provider.dart';
 /// Full searchable and filterable directory of all events (Tab 2).
 ///
 /// **Purpose:**
-/// Lets users browse every event in Eventora, filter by delivery mode
-/// (`Offline`, `Online`, `Featured`, `Nearby`) or category, and—if the user is
-/// in **Admin** mode—launch [CreateEventPage] via a Floating Action Button.
+/// Lets users browse events in Eventora using server-side pagination, filter by
+/// delivery mode (`Offline`, `Online`, `Featured`, `Nearby`) or category, and—if
+/// the user is in **Admin** mode—launch [CreateEventPage] via a Floating Action
+/// Button.
 ///
 /// **How it works:**
-/// Watches both [EventsProvider] (for the filtered event list) and
-/// [ProfileProvider] (to check `isAdmin` and conditionally show the "Create
-/// Event" button).
+/// 1. Watches [EventsProvider] (for the paginated event list and pagination
+///    flags) and [ProfileProvider] (to check `isAdmin`).
+/// 2. Attaches [EventsProvider.allEventsScrollController] to the
+///    [CustomScrollView] so scrolling near the bottom automatically fetches the
+///    next page of events from Supabase.
 class EventsPage extends StatelessWidget {
   /// Creates the [EventsPage] widget.
   const EventsPage({super.key});
@@ -61,6 +65,7 @@ class EventsPage extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),
           child: CustomScrollView(
+            controller: eventsProvider.allEventsScrollController,
             slivers: [
               // 1. Header & Search Bar
               SliverToBoxAdapter(
@@ -83,7 +88,7 @@ class EventsPage extends StatelessWidget {
                                       ?.copyWith(fontWeight: FontWeight.bold),
                                 ),
                                 Text(
-                                  'Showing ${filteredEvents.length} of ${eventsProvider.allEvents.length} total events',
+                                  'Loaded ${filteredEvents.length} events • Page ${eventsProvider.currentPage + 1} (${EventsProvider.pageSize} per page)',
                                   style: TextStyle(
                                     color: scheme.onSurfaceVariant,
                                     fontSize: 13,
@@ -162,7 +167,7 @@ class EventsPage extends StatelessWidget {
                 ),
               ),
 
-              // 4. Exhaustive Events List
+              // 4. Server-Paginated Events List
               if (filteredEvents.isEmpty)
                 const SliverToBoxAdapter(
                   child: EmptyEventsPlaceholder(
@@ -170,9 +175,9 @@ class EventsPage extends StatelessWidget {
                         'No events match your current mode or category filter.',
                   ),
                 )
-              else
+              else ...[
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                   sliver: SliverList.separated(
                     itemCount: filteredEvents.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 12),
@@ -185,6 +190,19 @@ class EventsPage extends StatelessWidget {
                     },
                   ),
                 ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 72),
+                    child: PaginationFooter(
+                      isLoadingMore: eventsProvider.isLoadingMore,
+                      hasMore: eventsProvider.hasMoreEvents,
+                      loadedCount: filteredEvents.length,
+                      currentPage: eventsProvider.currentPage,
+                      onLoadMore: eventsProvider.loadMoreEvents,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
