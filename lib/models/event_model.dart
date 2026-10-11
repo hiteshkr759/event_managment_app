@@ -142,7 +142,10 @@ class EventItem {
   /// **Purpose:**
   /// Supports immutable state updates in `EventsProvider` when a user joins or
   /// leaves an event.
-  EventItem copyWith({int? attendees, List<EventAttendee>? attendeeList}) {
+  EventItem copyWith({
+    int? attendees,
+    List<EventAttendee>? attendeeList,
+  }) {
     return EventItem(
       id: id,
       title: title,
@@ -230,9 +233,7 @@ class EventItem {
       'category': category,
       'event_mode': online ? 'online' : 'offline',
       'starts_at': _parseStartsAtIso(date, time),
-      'venue_name': online
-          ? null
-          : (location.isNotEmpty ? location : 'TBA Venue'),
+      'venue_name': online ? null : (location.isNotEmpty ? location : 'TBA Venue'),
       'address': online ? null : distance,
       'city': isNearby ? 'nearby' : 'standard',
       'online_platform': online ? (onlinePlatform ?? 'Online Platform') : null,
@@ -374,7 +375,8 @@ class EventItem {
       int year = 2026;
       if (dateParts.length >= 3) {
         final mKey = dateParts[0].toLowerCase();
-        month = months[mKey.length >= 3 ? mKey.substring(0, 3) : mKey] ?? 10;
+        month =
+            months[mKey.length >= 3 ? mKey.substring(0, 3) : mKey] ?? 10;
         day = int.tryParse(dateParts[1]) ?? 24;
         year = int.tryParse(dateParts[2]) ?? 2026;
       }
@@ -382,8 +384,9 @@ class EventItem {
       int hour = 18;
       int minute = 0;
       final cleanedTime = timeStr.trim().toUpperCase();
-      final timeMatch = RegExp(r'(\d{1,2}):(\d{2})\s*(AM|PM)?')
-          .firstMatch(cleanedTime);
+      final timeMatch = RegExp(
+        r'(\d{1,2}):(\d{2})\s*(AM|PM)?',
+      ).firstMatch(cleanedTime);
       if (timeMatch != null) {
         hour = int.tryParse(timeMatch.group(1)!) ?? 18;
         minute = int.tryParse(timeMatch.group(2)!) ?? 0;
@@ -445,3 +448,4 @@ const List<String> eventModeFilters = <String>[
   'Featured',
   'Nearby',
 ];
+

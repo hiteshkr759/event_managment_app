@@ -150,9 +150,8 @@ class EventDetailsSheet extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             event.title,
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.titleLarge
+                ?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 10),
           Row(
@@ -235,10 +234,8 @@ class EventDetailsSheet extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             event.description,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: scheme.onSurfaceVariant,
-              height: 1.4,
-            ),
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(color: scheme.onSurfaceVariant, height: 1.4),
           ),
           const SizedBox(height: 20),
           SizedBox(
@@ -247,9 +244,10 @@ class EventDetailsSheet extends StatelessWidget {
             child: isAttending
                 ? OutlinedButton.icon(
                     onPressed: () async {
-                      await context
-                          .read<EventsProvider>()
-                          .toggleAttendance(event, profile);
+                      await context.read<EventsProvider>().toggleAttendance(
+                        event,
+                        profile,
+                      );
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -264,9 +262,10 @@ class EventDetailsSheet extends StatelessWidget {
                   )
                 : FilledButton.icon(
                     onPressed: () async {
-                      await context
-                          .read<EventsProvider>()
-                          .toggleAttendance(event, profile);
+                      await context.read<EventsProvider>().toggleAttendance(
+                        event,
+                        profile,
+                      );
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
