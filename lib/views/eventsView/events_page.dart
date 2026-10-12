@@ -4,6 +4,7 @@ import 'package:event_managment_app/providers/profile_provider.dart';
 import 'package:event_managment_app/views/eventsView/create_event_page.dart';
 import 'package:event_managment_app/widget/event_carousel.dart';
 import 'package:event_managment_app/widget/event_details_sheet.dart';
+import 'package:event_managment_app/widget/eventora_logo.dart';
 import 'package:event_managment_app/widget/pagination_footer.dart';
 import 'package:event_managment_app/widget/role_badge.dart';
 import 'package:event_managment_app/widget/search_filter_bar.dart';
@@ -168,7 +169,15 @@ class EventsPage extends StatelessWidget {
               ),
 
               // 4. Server-Paginated Events List
-              if (filteredEvents.isEmpty)
+              if (eventsProvider.isLoading && filteredEvents.isEmpty)
+                const SliverToBoxAdapter(
+                  child: EventoraLoadingScreen(
+                    fullScreen: false,
+                    message: 'Searching Eventora Directory...',
+                    subtitle: 'Fetching matching events from Supabase',
+                  ),
+                )
+              else if (filteredEvents.isEmpty)
                 const SliverToBoxAdapter(
                   child: EmptyEventsPlaceholder(
                     message:

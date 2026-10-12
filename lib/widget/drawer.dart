@@ -2,6 +2,7 @@ import 'package:event_managment_app/providers/auth_provider.dart';
 import 'package:event_managment_app/providers/events_provider.dart';
 import 'package:event_managment_app/providers/navigation_provider.dart';
 import 'package:event_managment_app/providers/profile_provider.dart';
+import 'package:event_managment_app/widget/eventora_logo.dart';
 import 'package:event_managment_app/widget/role_badge.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -53,13 +54,22 @@ class EventDrawer extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                RoleBadge(isAdmin: profile?.isAdmin ?? false),
-                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const EventoraLogo(
+                      size: 32,
+                      lightText: true,
+                    ),
+                    const Spacer(),
+                    RoleBadge(isAdmin: profile?.isAdmin ?? false),
+                  ],
+                ),
+                const SizedBox(height: 12),
                 Text(
-                  profile?.displayName ?? 'Eventora',
+                  profile?.displayName ?? 'Eventora Explorer',
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 20,
+                    fontSize: 19,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

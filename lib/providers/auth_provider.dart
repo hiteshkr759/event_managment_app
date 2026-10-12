@@ -42,6 +42,7 @@ class AuthProvider extends ChangeNotifier {
   final TextEditingController signUpConfirmPasswordController =
       TextEditingController();
 
+  bool _isInitializing = true;
   bool _isLoggedIn = false;
   bool _isLoading = false;
   bool _obscureLoginPassword = true;
@@ -52,6 +53,9 @@ class AuthProvider extends ChangeNotifier {
   AuthProvider(this._profileProvider) {
     _initAuth();
   }
+
+  /// Whether the app is currently showing the initial startup splash screen.
+  bool get isInitializing => _isInitializing;
 
   /// Whether a user is currently authenticated (online session or offline fallback).
   bool get isLoggedIn => _isLoggedIn;
@@ -83,10 +87,15 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Checks for an existing Supabase session on startup and subscribes to future
-  // auth state changes (signedIn, signedOut, tokenRefreshed).
+  // Checks for an existing Supabase session on startup, shows the branded
+  // Eventora splash screen briefly, and subscribes to future auth changes.
   void _initAuth() {
     _isLoggedIn = _supabase.auth.currentSession != null;
+
+    Future<void>.delayed(const Duration(milliseconds: 900), () {
+      _isInitializing = false;
+      _safeNotify();
+    });
 
     _supabase.auth.onAuthStateChange.listen(
       (data) {

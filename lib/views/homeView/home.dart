@@ -4,6 +4,7 @@ import 'package:event_managment_app/providers/navigation_provider.dart';
 import 'package:event_managment_app/providers/profile_provider.dart';
 import 'package:event_managment_app/widget/event_carousel.dart';
 import 'package:event_managment_app/widget/event_details_sheet.dart';
+import 'package:event_managment_app/widget/eventora_logo.dart';
 import 'package:event_managment_app/widget/pagination_footer.dart';
 import 'package:event_managment_app/widget/role_badge.dart';
 import 'package:event_managment_app/widget/search_filter_bar.dart';
@@ -42,6 +43,16 @@ class HomePage extends StatelessWidget {
     final featuredEvents = eventsProvider.featuredEvents;
     final nearbyEvents = eventsProvider.nearbyEvents;
     final upcomingEvents = eventsProvider.upcomingEvents;
+
+    // Show the branded Eventora loading screen while the first page of events
+    // is being fetched from Supabase.
+    if (eventsProvider.isLoading && eventsProvider.allEvents.isEmpty) {
+      return const EventoraLoadingScreen(
+        fullScreen: false,
+        message: 'Discovering Live Events...',
+        subtitle: 'Fetching featured, nearby, and upcoming events from Supabase',
+      );
+    }
 
     return LayoutBuilder(
       builder: (context, constraints) {

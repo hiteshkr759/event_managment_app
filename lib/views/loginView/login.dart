@@ -1,6 +1,7 @@
 import 'package:event_managment_app/providers/auth_provider.dart';
 import 'package:event_managment_app/views/loginView/signup.dart';
 import 'package:event_managment_app/widget/auth_widgets.dart';
+import 'package:event_managment_app/widget/eventora_logo.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -38,7 +39,7 @@ class Login extends StatelessWidget {
     final auth = context.watch<AuthProvider>();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Eventora'), centerTitle: true),
+      appBar: AppBar(title: const EventoraLogo(size: 30), centerTitle: true),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(

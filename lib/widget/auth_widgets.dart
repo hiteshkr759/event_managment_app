@@ -1,3 +1,4 @@
+import 'package:event_managment_app/widget/eventora_logo.dart';
 import 'package:flutter/material.dart';
 
 /// Reusable teal gradient header card that matches the Home Page's banner style.
@@ -40,14 +41,7 @@ class AuthHeaderBanner extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(icon, color: Colors.white, size: 26),
-              ),
+              const EventoraLogo(size: 44, showText: false),
               const SizedBox(width: 12),
               Container(
                 padding: const EdgeInsets.symmetric(
